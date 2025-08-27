@@ -1,0 +1,22 @@
+version: '3.9'
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports: ["27017:27017"]
+    volumes:
+    - mongo_data:/data/db
+  api:
+    build: .
+    depends_on: [mongo]
+    environment:
+    - PORT=3000
+    - JWT_SECRET=${JWT_SECRET}
+    - MONGO_URL=mongodb://mongo:27017/photoapp
+    - PROCESSING_CONCURRENCY=2
+    ports:
+    - "3000:3000"
+    volumes:
+    - ./uploads:/app/uploads
+volumes:
+  mongo_data:

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Editly</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+
+  <body>
+    <!--Header and description-->
+    <div class="top">
+        <h1 style="text-align: center; ">Welcome to Editly!</h1>
+        <h3 style="text-align: center;" >Here you can upload, edit and view your pictures</h3> 
+      
+    </div>
+
+    <!--Upload pictures here-->
+    <div id="section1">
+        <h2> Upload your pictures here♥︎</h2>
+        <input type="file" id="file" accept="image/*" />
+        <button id="uploadBtn">Upload picture</button>
+        <div id="lastUpload"></div>
+    </div>
+
+    <!--The gallary-->
+    <div id="section2">
+        <h2 style="text-align: center; margin-top: 20px;">⋆⭒˚.⋆ Gallery  ⋆⭒˚.⋆</h2>
+        <div id="gallery"></div>
+        <button id="refreshBtn">Update</button>
+    </div>
+
+    <!--Logout-->
+    <div id="bottom">
+        <button id="logoutBtn">Log out</button>
+    </div>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>
