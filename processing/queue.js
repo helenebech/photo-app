@@ -1,4 +1,3 @@
-// processing/queue.js
 import Image from '../models/Image.js';
 import { processImage } from './processor.js';
 import path from 'path';
@@ -11,12 +10,13 @@ const q = [];
 let running = 0;
 const CONCURRENCY = parseInt(process.env.PROCESSING_CONCURRENCY || '2', 10);
 
-// Legg jobb i kø
+//queue job
 export function enqueue(image, options = {}) {
   q.push({ image, options });
   tick();
 }
 
+//uploads one photo at the time
 async function tick() {
   if (running >= CONCURRENCY) return;
   const job = q.shift();
@@ -30,15 +30,13 @@ async function tick() {
     const outDir    = path.join(__dirname, '..', 'uploads', 'derived');
     const outThumb  = path.join(outDir, `${img._id}-thumb.jpg`);
     const outMedium = path.join(outDir, `${img._id}-medium.jpg`);
-    const outArt    = path.join(outDir, `${img._id}-art.jpg`);
     const outEdit   = path.join(outDir, `${img._id}-edit.jpg`);
 
     await processImage({
       srcPath: img.originalPath,
       outThumb,
       outMedium,
-      outArt,
-      edit: job.options?.edit,
+      edit: job.options?.edit,                 
       outEdit: job.options?.edit ? outEdit : undefined
     });
 
@@ -48,7 +46,6 @@ async function tick() {
         ...(img.variants || {}),
         thumbPath: outThumb,
         mediumPath: outMedium,
-        artPath: outArt,
         ...(job.options?.edit ? { editPath: outEdit } : {})
       }
     };
@@ -64,3 +61,4 @@ async function tick() {
     setImmediate(tick);
   }
 }
+

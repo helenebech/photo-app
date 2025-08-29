@@ -99,13 +99,9 @@ router.post('/:id/process', auth, async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  const edit = Object.keys(req.body || {}).length ? {
-    effect:  req.body.effect,
-    blur:    req.body.blur,
-    rotate:  req.body.rotate,
-    width:   req.body.width,
-    quality: req.body.quality
-  } : undefined;
+  const edit = req.body?.effect === 'grayscale'
+  ? { effect: 'grayscale' }
+  : undefined;
 
   if (['queued', 'processing'].includes(img.status)) {
     return res.status(202).json({ ok: true, alreadyQueued: true });
