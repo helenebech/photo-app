@@ -17,24 +17,24 @@ Core criteria
 
 Your application has been bundled into a Docker container and stored on our AWS ECR instance.
 
-- **ECR Repository name:**
-- **Video timestamp:**
+- **ECR Repository name:**n12542407-photo-app
+- **Video timestamp:**00:13
 - **Relevant files:**
-    - 
+    - /Dockerfile
 
 ### Deploy the container
 
 Your application container has been pulled from AWS ECR and deployed to an EC2 instance.
 
-- **EC2 instance ID:**
-- **Video timestamp:**
+- **EC2 instance ID:**i-041251fab5563cd7a
+- **Video timestamp:**00:22
 
 ### User login
 
 Your application has basic user login and session management with JWT. Logins must have meaningful distinctions for different users.
 
 - **One line description:** Hard-coded username/password list. Using JWTs for sessions. Admin can see all pictures users have uploaded and also has the option to delete pictures.
-- **Video timestamp:**
+- **Video timestamp:**00:59
 - **Relevant files:**
     - /config/users.json
     - /routes/auth.js
@@ -44,7 +44,7 @@ Your application has basic user login and session management with JWT. Logins mu
 Your application has a REST-based application programming interface (API) which is considered its primary interface. 
 
 - **One line description:** REST api with endpoints and http methonds (POST, GET, DELETE)
-- **Video timestamp:**
+- **Video timestamp:**02:21
 - **Relevant files:**
     - /routes/comments.js
     - /routes/images.js
@@ -53,7 +53,7 @@ Your application has a REST-based application programming interface (API) which 
 ### Two data types
 
 - **One line description:** The application stores pictures (original, edited etc.) and comments related to specific pictures. 
-- **Video timestamp:**
+- **Video timestamp:**02:56
 - **Relevant files:**
     - /uploads/originals/
     - /uploads/derived/ 
@@ -79,7 +79,7 @@ Your application has a REST-based application programming interface (API) which 
 - **One line description:** Metadata of pictures and comments
 - **Type:** Structured (MongoDB)
 - **Rationale:** Easy to search, filter and fetch specific data by id.
-- **Video timestamp:**
+- **Video timestamp:**03:12
 - **Relevant files:**
     - /models/Image.js
     - /models/Comment.js
@@ -91,7 +91,7 @@ Your application has a REST-based application programming interface (API) which 
 Your application uses at least one CPU intensive process that can be triggered by requests to load down the server. In later assessment, you will need to load down more servers so here, try to exceed 80% CPU usage for an extended time (5 minutes is enough).
 
  **One line description:** The CPU intensive process in this application is the "Greyscale" filter. 
-- **Video timestamp:** 
+- **Video timestamp:**03:50
 - **Relevant files:**
     - 
 
@@ -99,8 +99,8 @@ Your application uses at least one CPU intensive process that can be triggered b
 
 You demonstrate a script or manual method for generating enough requests to load down the server to >80% CPU for an extended time (5 minutes is enough) with enough headroom on your network connection to load down an additional 3 servers.
 
- **One line description:**
-- **Video timestamp:** 
+ **One line description:**I ran a temporary Docker container that uses 4 CPU workers to keep the CPUs at roughly 80% load for 300 seconds before stopping.
+- **Video timestamp:**04:52 
 - **Relevant files:**
     - 
 

@@ -4,7 +4,7 @@ const VariantSchema = new mongoose.Schema({
   thumbPath: String,
   mediumPath: String,
   artPath: String,
-  editPath: String   // ny: sist redigerte variant
+  editPath: String   
 }, { _id: false });
 
 const ImageSchema = new mongoose.Schema({
