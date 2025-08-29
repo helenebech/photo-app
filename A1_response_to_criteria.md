@@ -145,7 +145,7 @@ Additional criteria
 ### Web client
 
 - **One line description:** A simple web client that allows users to log in,upload images, view uploaded and edited images, add comments, and delete images (admin only)
-- **Video timestamp:**
+- **Video timestamp:**00:52
 - **Relevant files:**
     - /public/app.html
     - /public/style.css
