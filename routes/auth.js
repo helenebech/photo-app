@@ -1,8 +1,9 @@
+//This page creates a login endpoint with express
+
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import users from '../config/users.json' assert { type: 'json' };
 
-//creates a login endpoint with express
 const router = express.Router();
 
 router.post('/login', (req, res) => {

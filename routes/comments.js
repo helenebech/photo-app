@@ -22,7 +22,9 @@ function auth(req, res, next) {
   }
 }
 
-//make comment for a picture
+//endpoints (POST, GET one)
+
+//POST - make comment for a picture
 router.post('/', auth, async (req, res) => {
   const { imageId, text } = req.body;
   const image = await Image.findById(imageId);
@@ -39,7 +41,7 @@ router.post('/', auth, async (req, res) => {
   res.status(201).json(comment);
 });
 
-//fetch comments on imageId
+//GET - fetch comments on imageId
 router.get('/', auth, async (req, res) => {
   const { imageId } = req.query;
   const filter = imageId ? { imageId } : {};

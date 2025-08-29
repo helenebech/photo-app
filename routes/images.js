@@ -21,7 +21,6 @@ const DIR_DER    = path.join(ROOT, 'uploads', 'derived');
 fs.mkdirSync(DIR_ORIG, { recursive: true });
 fs.mkdirSync(DIR_DER,  { recursive: true });
 
-// ---- auth ----
 function auth(req, res, next) {
   const h = req.headers.authorization || '';
   const token = h.startsWith('Bearer ') ? h.slice(7) : null;
@@ -35,7 +34,6 @@ function auth(req, res, next) {
 }
 const isAdmin = (req) => req.user?.role === 'admin';
 
-// ---- multer (opplasting) ----
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, DIR_ORIG),
   filename: (_req, file, cb) => {
@@ -44,6 +42,7 @@ const storage = multer.diskStorage({
   }
 });
 
+//Only accepts JPEG, PNG, WebP
 const upload = multer({
   storage,
   fileFilter: (_req, file, cb) => {
@@ -55,6 +54,7 @@ const upload = multer({
 
 const exists = (p) => { try { return p && fs.existsSync(p); } catch { return false; } };
 
+//different versions of picture (quality, edit etc.) 
 function buildUrls(doc) {
   const id = doc._id;
   const origName = doc.originalPath ? path.basename(doc.originalPath) : null;
