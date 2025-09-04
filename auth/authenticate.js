@@ -1,5 +1,4 @@
 import Cognito  from "@aws-sdk/client-cognito-identity-provider";
-//import jwt from "aws-jwt-verify";
 import { CognitoJwtVerifier } from "aws-jwt-verify";
 import crypto from "crypto";
 import {userPoolId, clientId, clientSecret, username, password, email} from "authSecrets.js"
