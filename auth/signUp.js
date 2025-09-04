@@ -1,13 +1,6 @@
 import Cognito from "@aws-sdk/client-cognito-identity-provider";
 import crypto from "crypto";
-
-const clientId = "3trgv39k9aknpcl0p5bupbr1do";  // Obtain from the AWS console
-const clientSecret = "15orh6gsnha8tnit642vju3pf918fggo9ukb5ggegli2175aieq2";  // Obtain from the AWS console
-const username = "user2";
-const password = "Supersecret1!";
-const email = "marie.laukeland@gmail.com";
-
-
+import {clientId, clientSecret, username, password, email} from "authSecrets.js"
 
 function secretHash(clientId, clientSecret, username) {
   const hasher = crypto.createHmac('sha256', clientSecret);
