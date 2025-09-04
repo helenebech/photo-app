@@ -2,7 +2,7 @@
 
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import users from '../config/users.json' assert { type: 'json' };
+import users from '../config/users.json' with { type: 'json' };
 
 const router = express.Router();
 
