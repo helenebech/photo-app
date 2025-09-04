@@ -40,27 +40,24 @@ app.use('/', express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Load environment variables for Cognito
-const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN; // e.g., "myapp.auth.ap-southeast-2.amazoncognito.com"
-const CLIENT_ID = process.env.COGNITO_CLIENT_ID; // "3trgv39k9aknpcl0p5bupbr1do"
-const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET; // if used
-const REDIRECT_URI = process.env.COGNITO_REDIRECT_URI; // e.g., "http://localhost:3000/callback"
+const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN; 
+const CLIENT_ID = process.env.COGNITO_CLIENT_ID; 
+const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET; 
+const REDIRECT_URI = process.env.COGNITO_REDIRECT_URI; 
 
 let client;
-
-(async () => {
-  try {
-    const issuer = await Issuer.discover(`https://${COGNITO_DOMAIN}`);
+async function initializeClient() {
+    const issuer = await Issuer.discover('https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_qVXLTJwBJ');
     client = new issuer.Client({
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      redirect_uris: [REDIRECT_URI],
-      response_types: ['code'],
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        redirect_uris: REDIRECT_URI,
+        response_types: ['code']
     });
-    console.log('Cognito client initialized');
-  } catch (err) {
-    console.error('Failed to initialize Cognito client:', err);
-  }
-})();
+};
+
+initializeClient().catch(console.error);
+
 
 //authentication check
 function checkAuth (req, res, next) {
@@ -112,22 +109,39 @@ app.get('/logout', (req, res) => {
     res.redirect(logoutUrl);
 });
 
-app.get('/callback', async (req, res) => {
-  const params = client.callbackParams(req);
+// Helper function to get the path from the URL. Example: "http://localhost/hello" returns "/hello"
+function getPathFromURL(urlString) {
+    try {
+        const url = new URL(urlString);
+        return url.pathname;
+    } catch (error) {
+        console.error('Invalid URL:', error);
+        return null;
+    }
+}
 
-  try {
-    const tokenSet = await client.callback(REDIRECT_URI, params, {
-      state: req.session.state,
-      nonce: req.session.nonce,
-    });
+app.get(getPathFromURL('https://d84l1y8p4kdic.cloudfront.net'), async (req, res) => {
+    try {
+        const params = client.callbackParams(req);
+        const tokenSet = await client.callback(
+            'https://d84l1y8p4kdic.cloudfront.net',
+            params,
+            {
+                nonce: req.session.nonce,
+                state: req.session.state
+            }
+        );
 
-    req.session.userInfo = tokenSet.claims(); // store user info in session
-    res.redirect('/');
-  } catch (err) {
-    console.error('Callback error:', err);
-    res.status(500).send('Authentication failed');
-  }
+        const userInfo = await client.userinfo(tokenSet.access_token);
+        req.session.userInfo = userInfo;
+
+        res.redirect('/');
+    } catch (err) {
+        console.error('Callback error:', err);
+        res.redirect('/');
+    }
 });
+
 
 
 //API-routes
