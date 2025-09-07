@@ -1,4 +1,5 @@
-// routes/s3.js
+//This page handles image upload and access with s3-buckets
+
 import express from "express";
 import crypto from "crypto";
 import sharp from "sharp";
@@ -9,15 +10,11 @@ import { s3, BUCKET } from "../config/s3.js";
 
 const router = express.Router();
 
-// enkel whitelist
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
-// Multer for "vanlig" opplasting (skiller fra presigned PUT)
 const upload = multer({ storage: multer.memoryStorage() });
 
-// ----------------------------------------------------------
-// 1. Presigned upload (klienten laster direkte til S3)
-// ----------------------------------------------------------
+//POST
 router.post("/upload-url", async (req, res) => {
   try {
     const { filename, contentType } = req.body || {};
@@ -45,9 +42,7 @@ router.post("/upload-url", async (req, res) => {
   }
 });
 
-// ----------------------------------------------------------
-// 2. Direkte opplasting via backend (med EXIF-rotate)
-// ----------------------------------------------------------
+//POST 
 router.post("/upload-direct", upload.single("image"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "Missing file" });
@@ -60,7 +55,6 @@ router.post("/upload-direct", upload.single("image"), async (req, res) => {
       .replace(/[^\w.\-]+/g, "_");
     const key = `uploads/${crypto.randomUUID()}-${safeName}`;
 
-    // 🔑 Normaliser orientering
     const fixedBuffer = await sharp(req.file.buffer).rotate().toBuffer();
 
     await s3.send(
@@ -79,21 +73,17 @@ router.post("/upload-direct", upload.single("image"), async (req, res) => {
   }
 });
 
-// ----------------------------------------------------------
-// 3. Presigned GET for å vise private objekter
-// ----------------------------------------------------------
+//GET
 router.get("/view-url", async (req, res) => {
   try {
     const { key } = req.query;
-    if (!key) return res.status(400).json({ error: "key required" });
-
-    // 🔑 Viktig: dekod før signering
+    if (!key) 
+      return res.status(400).json({ error: "key required" });
     const rawKey = decodeURIComponent(String(key));
-
     const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: rawKey });
     const url = await getSignedUrl(s3, cmd, { expiresIn: 300 });
     res.json({ url });
-  } catch (e) {
+    } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Could not create view URL" });
   }

@@ -1,4 +1,4 @@
-// This page defines API for uploading, processing, listing, retrieving, and (for admins) deleting images
+//This page defines API for uploading, processing, listing, retrieving, and (for admins) deleting images
 
 import express from 'express';
 import multer from 'multer';
@@ -12,7 +12,8 @@ import { s3, BUCKET } from '../config/s3.js';
 
 const router = express.Router();
 
-/* ----------------------------- auth helpers ----------------------------- */
+//Helper-functions (authentication++)
+
 function auth(req, res, next) {
   const h = req.headers.authorization || '';
   const token = h.startsWith('Bearer ') ? h.slice(7) : null;
@@ -26,7 +27,6 @@ function auth(req, res, next) {
 }
 const isAdmin = (req) => req.user?.role === 'admin';
 
-/* ----------------------------- upload config ---------------------------- */
 const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter: (_req, file, cb) => {
@@ -36,17 +36,14 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 }
 });
 
-/* ------------------------------- utilities ------------------------------ */
-// Normaliser nøkkel hvis noen gamle dokumenter har lokal sti
 function normalizeKey(p) {
   if (!p) return null;
   const s = String(p);
   const i = s.indexOf('/uploads/');
-  if (i >= 0) return s.slice(i + 1); // 'uploads/...'
+  if (i >= 0) return s.slice(i + 1); 
   return s.replace(/^\/+/, '');
 }
 
-// Returner nøkler som frontend vil slå opp via /api/v1/s3/view-url
 function buildUrls(doc) {
   const v = doc.variants || {};
   return {
@@ -58,16 +55,15 @@ function buildUrls(doc) {
   };
 }
 
-// Stream->Buffer helper for S3 GetObject
 async function streamToBuffer(stream) {
   const chunks = [];
   for await (const c of stream) chunks.push(c);
   return Buffer.concat(chunks);
 }
 
-/* --------------------------------- routes -------------------------------- */
+//ENDPOINTS
 
-// POST /api/v1/images  (upload new image)
+//POST image
 router.post('/', auth, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Missing file' });
 
@@ -75,7 +71,6 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
   const key = `uploads/${crypto.randomUUID()}-${safeName}`;
 
   try {
-    // Normaliser EXIF-orientering før opplasting til S3
     const fixedBuffer = await sharp(req.file.buffer).rotate().toBuffer();
 
     await s3.send(new PutObjectCommand({
@@ -105,7 +100,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
   }
 });
 
-// POST /api/v1/images/:id/process  (apply grayscale -> save edit variant)
+//POST edited image
 router.post('/:id/process', auth, async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
@@ -116,27 +111,22 @@ router.post('/:id/process', auth, async (req, res) => {
 
   const effect = req.body?.effect;
 
-  // Foreløpig støtter vi kun grayscale; utvid senere ved behov.
   if (effect !== 'grayscale') {
     return res.json({ ok: true, skipped: true });
   }
 
   try {
-    // 1) Hent original fra S3
     const obj = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: img.originalPath }));
     const buf = await streamToBuffer(obj.Body);
 
-    // 2) Prosesser: respekter EXIF + greyscale
     const outBuf = await sharp(buf)
       .rotate()
       .grayscale()
       .jpeg({ quality: 85 })
       .toBuffer();
 
-    // 3) Lag stabil key for edit-varianten
     const editKey = img.originalPath.replace(/(\.[a-z0-9]+)?$/i, '_edit.jpg'); // uploads/abc.jpg -> uploads/abc_edit.jpg
 
-    // 4) Last opp edit til S3
     await s3.send(new PutObjectCommand({
       Bucket: BUCKET,
       Key: editKey,
@@ -144,7 +134,6 @@ router.post('/:id/process', auth, async (req, res) => {
       ContentType: 'image/jpeg'
     }));
 
-    // 5) Oppdater DB med variants.editPath
     await Image.updateOne(
       { _id: img._id },
       { $set: { 'variants.editPath': editKey, status: 'processed' } }
@@ -158,7 +147,7 @@ router.post('/:id/process', auth, async (req, res) => {
   }
 });
 
-// GET /api/v1/images  (list images)
+//GET all images
 router.get('/', auth, async (req, res) => {
   const { page = 1, limit = 50, sort = '-createdAt', tag, all } = req.query;
 
@@ -177,7 +166,6 @@ router.get('/', auth, async (req, res) => {
   const out = items.map(doc => {
     const o = doc.toObject();
     o.urls = buildUrls(o);
-    // Normaliser evt. gamle stier for sikkerhets skyld
     if (o.urls.original) o.urls.original = normalizeKey(o.urls.original);
     if (o.urls.medium)   o.urls.medium   = normalizeKey(o.urls.medium);
     if (o.urls.thumb)    o.urls.thumb    = normalizeKey(o.urls.thumb);
@@ -188,7 +176,7 @@ router.get('/', auth, async (req, res) => {
   res.json({ items: out, page: p, limit: l, total, isAdmin: isAdmin(req) });
 });
 
-// GET /api/v1/images/:id  (get one)
+//GET one image
 router.get('/:id', auth, async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
@@ -204,14 +192,13 @@ router.get('/:id', auth, async (req, res) => {
   res.json(o);
 });
 
-// DELETE /api/v1/images/:id  (admin only)
+//DELETE image (admin)
 router.delete('/:id', auth, async (req, res) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'Admin only' });
 
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
 
-  // NB: Om du vil slette S3-objekter også, legg til s3.deleteObject her.
   await Image.deleteOne({ _id: img._id });
   res.json({ ok: true, deleted: img._id });
 });

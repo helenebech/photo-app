@@ -13,7 +13,7 @@ import { Issuer, generators } from 'openid-client';
 import authRoutes from './routes/auth.js';
 import imageRoutes from './routes/images.js';
 import commentRoutes from './routes/comments.js';
-import s3Routes from './routes/s3.js';   // lagt til
+import s3Routes from './routes/s3.js';   
 
 dotenv.config();
 
@@ -29,7 +29,7 @@ app.use(
     secret: process.env.SESSION_SECRET || 'supersecret',
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: false }, // true if HTTPS
+    cookie: { secure: false }, 
   })
 );
 
@@ -38,10 +38,6 @@ const __dirname = path.dirname(__filename);
 
 //static files
 app.use('/', express.static(path.join(__dirname, 'public')));
-// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-// endret (assistant): fjernet lokal /uploads for å unngå forvirring når vi bruker S3
-
-// Load environment variables for Cognito
 const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN;
 const CLIENT_ID = process.env.COGNITO_CLIENT_ID;
 const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET;
