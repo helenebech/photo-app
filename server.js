@@ -1,18 +1,19 @@
 //This code sets up an Express server with MongoDB
 
+import dotenv from 'dotenv';
 import express from 'express';
 import session from 'express-session';
-import dotenv from 'dotenv';
 import cors from 'cors';
 import morgan from 'morgan';
 import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import {Issuer, generators} from 'openid-client';
+import { Issuer, generators } from 'openid-client';
 
 import authRoutes from './routes/auth.js';
 import imageRoutes from './routes/images.js';
 import commentRoutes from './routes/comments.js';
+import s3Routes from './routes/s3.js';   // lagt til
 
 dotenv.config();
 
@@ -33,40 +34,40 @@ app.use(
 );
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const __dirname = path.dirname(__filename);
 
 //static files
 app.use('/', express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// endret (assistant): fjernet lokal /uploads for å unngå forvirring når vi bruker S3
 
 // Load environment variables for Cognito
-const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN; 
-const CLIENT_ID = process.env.COGNITO_CLIENT_ID; 
-const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET; 
-const REDIRECT_URI = process.env.COGNITO_REDIRECT_URI; 
+const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN;
+const CLIENT_ID = process.env.COGNITO_CLIENT_ID;
+const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET;
+const REDIRECT_URI = process.env.COGNITO_REDIRECT_URI;
 
 let client;
 async function initializeClient() {
-    const issuer = await Issuer.discover('https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_qVXLTJwBJ');
-    client = new issuer.Client({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        redirect_uris: REDIRECT_URI,
-        response_types: ['code']
-    });
+  const issuer = await Issuer.discover('https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_qVXLTJwBJ');
+  client = new issuer.Client({
+    client_id: CLIENT_ID,
+    client_secret: CLIENT_SECRET,
+    redirect_uris: REDIRECT_URI,
+    response_types: ['code']
+  });
 };
 
 initializeClient().catch(console.error);
 
-
 //authentication check
-function checkAuth (req, res, next) {
-    if (!req.session.userInfo) {
-        req.isAuthenticated = false;
-    } else {
-        req.isAuthenticated = true;
-    }
-    next();
+function checkAuth(req, res, next) {
+  if (!req.session.userInfo) {
+    req.isAuthenticated = false;
+  } else {
+    req.isAuthenticated = true;
+  }
+  next();
 };
 
 //pages
@@ -86,7 +87,7 @@ app.get('/app', (_req, res) => {
 });
 
 app.get('/login', (req, res) => {
-  if(!client) return res.status(500).send('Auth client not initialized');
+  if (!client) return res.status(500).send('Auth client not initialized');
   const nonce = generators.nonce();
   const state = generators.state();
 
@@ -99,55 +100,54 @@ app.get('/login', (req, res) => {
     nonce: nonce,
   });
 
-    res.redirect(authUrl);
+  res.redirect(authUrl);
 });
 
 // Logout route
 app.get('/logout', (req, res) => {
-    req.session.destroy();
-    const logoutUrl = `https://${COGNITO_DOMAIN}/logout?client_id=${CLIENT_ID}&logout_uri=${REDIRECT_URI}`;
-    res.redirect(logoutUrl);
+  req.session.destroy();
+  const logoutUrl = `https://${COGNITO_DOMAIN}/logout?client_id=${CLIENT_ID}&logout_uri=${REDIRECT_URI}`;
+  res.redirect(logoutUrl);
 });
 
 // Helper function to get the path from the URL. Example: "http://localhost/hello" returns "/hello"
 function getPathFromURL(urlString) {
-    try {
-        const url = new URL(urlString);
-        return url.pathname;
-    } catch (error) {
-        console.error('Invalid URL:', error);
-        return null;
-    }
+  try {
+    const url = new URL(urlString);
+    return url.pathname;
+  } catch (error) {
+    console.error('Invalid URL:', error);
+    return null;
+  }
 }
 
 app.get(getPathFromURL('https://d84l1y8p4kdic.cloudfront.net'), async (req, res) => {
-    try {
-        const params = client.callbackParams(req);
-        const tokenSet = await client.callback(
-            'https://d84l1y8p4kdic.cloudfront.net',
-            params,
-            {
-                nonce: req.session.nonce,
-                state: req.session.state
-            }
-        );
+  try {
+    const params = client.callbackParams(req);
+    const tokenSet = await client.callback(
+      'https://d84l1y8p4kdic.cloudfront.net',
+      params,
+      {
+        nonce: req.session.nonce,
+        state: req.session.state
+      }
+    );
 
-        const userInfo = await client.userinfo(tokenSet.access_token);
-        req.session.userInfo = userInfo;
+    const userInfo = await client.userinfo(tokenSet.access_token);
+    req.session.userInfo = userInfo;
 
-        res.redirect('/');
-    } catch (err) {
-        console.error('Callback error:', err);
-        res.redirect('/');
-    }
+    res.redirect('/');
+  } catch (err) {
+    console.error('Callback error:', err);
+    res.redirect('/');
+  }
 });
-
-
 
 //API-routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/images', imageRoutes);
 app.use('/api/v1/comments', commentRoutes);
+app.use('/api/v1/s3', s3Routes);   // 👈 lagt til
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 

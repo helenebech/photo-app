@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Editly</title>
     <link rel="stylesheet" href="style.css">
+
+    <!-- endret (assistant): tillat bilder fra S3/CloudFront i CSP -->
+    <meta http-equiv="Content-Security-Policy"
+          content="
+            default-src 'self';
+            img-src 'self' data: https://*.amazonaws.com https://*.s3.amazonaws.com https://*.cloudfront.net;
+            script-src 'self';
+            style-src 'self' 'unsafe-inline';
+          ">
+    <!-- /endret (assistant) -->
   </head>
 
   <body>
@@ -12,7 +22,6 @@
     <div class="top">
         <h1 style="text-align: center; ">Welcome to Editly!</h1>
         <h3 style="text-align: center;" >Here you can upload, edit and view your pictures</h3> 
-      
     </div>
 
     <!--Upload pictures here-->

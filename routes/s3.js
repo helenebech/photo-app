@@ -1,30 +1,40 @@
 // routes/s3.js
 import express from "express";
 import crypto from "crypto";
+import sharp from "sharp";
 import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import multer from "multer";
 import { s3, BUCKET } from "../config/s3.js";
 
 const router = express.Router();
 
 // enkel whitelist
-const ALLOWED = ["image/jpeg","image/png","image/webp","image/gif"];
+const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
+// Multer for "vanlig" opplasting (skiller fra presigned PUT)
+const upload = multer({ storage: multer.memoryStorage() });
+
+// ----------------------------------------------------------
+// 1. Presigned upload (klienten laster direkte til S3)
+// ----------------------------------------------------------
 router.post("/upload-url", async (req, res) => {
   try {
     const { filename, contentType } = req.body || {};
-    if (!filename || !contentType) return res.status(400).json({ error: "filename + contentType required" });
-    if (!ALLOWED.includes(contentType)) return res.status(415).json({ error: "Unsupported contentType" });
+    if (!filename || !contentType) {
+      return res.status(400).json({ error: "filename + contentType required" });
+    }
+    if (!ALLOWED.includes(contentType)) {
+      return res.status(415).json({ error: "Unsupported contentType" });
+    }
 
-    const datePrefix = new Date().toISOString().slice(0,10).replace(/-/g,"/");
+    const datePrefix = new Date().toISOString().slice(0, 10).replace(/-/g, "/");
     const key = `uploads/${datePrefix}/${crypto.randomUUID()}-${filename}`;
 
     const cmd = new PutObjectCommand({
       Bucket: BUCKET,
       Key: key,
       ContentType: contentType,
-      // ServerSideEncryption: "AES256", // valgfritt
-      // CacheControl: "public,max-age=31536000,immutable", // hvis du bruker CDN
     });
 
     const uploadUrl = await getSignedUrl(s3, cmd, { expiresIn: 90 });
@@ -35,12 +45,52 @@ router.post("/upload-url", async (req, res) => {
   }
 });
 
-// signert GET for å vise private objekter (5 min)
+// ----------------------------------------------------------
+// 2. Direkte opplasting via backend (med EXIF-rotate)
+// ----------------------------------------------------------
+router.post("/upload-direct", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "Missing file" });
+    if (!ALLOWED.includes(req.file.mimetype)) {
+      return res.status(415).json({ error: "Unsupported contentType" });
+    }
+
+    const safeName = req.file.originalname
+      .normalize("NFC")
+      .replace(/[^\w.\-]+/g, "_");
+    const key = `uploads/${crypto.randomUUID()}-${safeName}`;
+
+    // 🔑 Normaliser orientering
+    const fixedBuffer = await sharp(req.file.buffer).rotate().toBuffer();
+
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: BUCKET,
+        Key: key,
+        Body: fixedBuffer,
+        ContentType: req.file.mimetype,
+      })
+    );
+
+    res.json({ ok: true, key });
+  } catch (e) {
+    console.error("upload-direct error", e);
+    res.status(500).json({ error: "Could not upload file" });
+  }
+});
+
+// ----------------------------------------------------------
+// 3. Presigned GET for å vise private objekter
+// ----------------------------------------------------------
 router.get("/view-url", async (req, res) => {
   try {
     const { key } = req.query;
     if (!key) return res.status(400).json({ error: "key required" });
-    const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: key });
+
+    // 🔑 Viktig: dekod før signering
+    const rawKey = decodeURIComponent(String(key));
+
+    const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: rawKey });
     const url = await getSignedUrl(s3, cmd, { expiresIn: 300 });
     res.json({ url });
   } catch (e) {

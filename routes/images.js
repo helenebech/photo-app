@@ -2,24 +2,23 @@
 
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
 import jwt from 'jsonwebtoken';
-import { fileURLToPath } from 'url';
+import sharp from "sharp";
+import crypto from 'crypto';               // endret
+// import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';  // endret
+import { PutObjectCommand } from '@aws-sdk/client-s3';              // endret (assistant): bruker felles s3-klient
 
 import Image from '../models/Image.js';
 import { enqueue } from '../processing/queue.js';
 
+// endret (assistant): bruk felles S3-klient/konfig i stedet for å instansiere her
+import { s3, BUCKET } from '../config/s3.js'; // endret (assistant)
+
 const router = express.Router();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-const ROOT       = path.join(__dirname, '..');
-const DIR_ORIG   = path.join(ROOT, 'uploads', 'originals');
-const DIR_DER    = path.join(ROOT, 'uploads', 'derived');
-
-fs.mkdirSync(DIR_ORIG, { recursive: true });
-fs.mkdirSync(DIR_DER,  { recursive: true });
+// endret: fjernet fs/path-diskoppsett, nå brukes S3
+// const s3 = new S3Client({ region: process.env.AWS_REGION });  // endret
+// const BUCKET = process.env.S3_BUCKET;                        // endret
 
 function auth(req, res, next) {
   const h = req.headers.authorization || '';
@@ -34,17 +33,9 @@ function auth(req, res, next) {
 }
 const isAdmin = (req) => req.user?.role === 'admin';
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, DIR_ORIG),
-  filename: (_req, file, cb) => {
-    const safe = file.originalname.normalize('NFC').replace(/[^\w.\-]+/g, '_');
-    cb(null, Date.now() + '-' + safe);
-  }
-});
-
-//Only accepts JPEG, PNG, WebP
+// endret: bruk memoryStorage i stedet for diskStorage
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),  // endret
   fileFilter: (_req, file, cb) => {
     const ok = /image\/(jpeg|png|webp)/i.test(file.mimetype);
     cb(ok ? null : new Error('Only JPEG/PNG/WebP'), ok);
@@ -52,24 +43,33 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 }
 });
 
-const exists = (p) => { try { return p && fs.existsSync(p); } catch { return false; } };
-
 //different versions of picture (quality, edit etc.) 
+// endret: buildUrls er ikke lenger knyttet til lokalt filsystem.
+// Du kan senere utvide til å generere presigned GET URLs fra S3.
+
+// endret (assistant): normaliser nøkkel hvis noen gamle dokumenter har lokal sti
+function normalizeKey(p) { // endret (assistant)
+  if (!p) return null;
+  const s = String(p);
+  const i = s.indexOf('/uploads/');
+  if (i >= 0) return s.slice(i + 1); // 'uploads/...'
+  return s.replace(/^\/+/, '');
+}
+
+// endret (assistant): vis edit-varianten hvis den finnes, ellers original
+function pickDisplayKey(doc) { // endret (assistant)
+  return doc?.variants?.editPath || doc?.originalPath || null;
+}
+
+// endret (assistant): returner nøkkelen som frontend vil slå opp via /api/v1/s3/view-url
 function buildUrls(doc) {
-  const id = doc._id;
-  const origName = doc.originalPath ? path.basename(doc.originalPath) : null;
-
-  const thumbP  = path.join(DIR_DER, `${id}-thumb.jpg`);
-  const mediumP = path.join(DIR_DER, `${id}-medium.jpg`);
-  const artP    = path.join(DIR_DER, `${id}-art.jpg`);
-  const editP   = path.join(DIR_DER, `${id}-edit.jpg`);
-
+  const v = doc.variants || {};
   return {
-    thumb:    exists(thumbP)  ? `/uploads/derived/${id}-thumb.jpg`  : null,
-    medium:   exists(mediumP) ? `/uploads/derived/${id}-medium.jpg` : null,
-    art:      exists(artP)    ? `/uploads/derived/${id}-art.jpg`    : null,
-    edit:     exists(editP)   ? `/uploads/derived/${id}-edit.jpg`   : null,
-    original: origName ? `/uploads/originals/${origName}` : null
+    key: doc.originalPath || null,   // nøkkelen til original i S3
+    original: doc.originalPath || null,
+    thumb: v.thumbPath || null,
+    medium: v.mediumPath || null,
+    edit: v.editPath || null         // 👈 viktig: nå får frontend u.edit
   };
 }
 
@@ -79,15 +79,40 @@ function buildUrls(doc) {
 router.post('/', auth, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Missing file' });
 
-  const img = await Image.create({
-    ownerId: req.user.sub,
-    originalPath: req.file.path,
-    mimeType: req.file.mimetype,
-    size: req.file.size,
-    status: 'uploaded'
-  });
+  const safeName = req.file.originalname.normalize('NFC').replace(/[^\w.\-]+/g, '_');
+  const key = `uploads/${crypto.randomUUID()}-${safeName}`;
 
-  res.status(201).json(img);
+  try {
+    // ✅ Normaliser EXIF-orientering før opplasting til S3
+    const fixedBuffer = await sharp(req.file.buffer)
+      .rotate()               // <- viktig
+      .toBuffer();
+
+    await s3.send(new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: fixedBuffer,      // <- bruk fixedBuffer
+      ContentType: req.file.mimetype
+    }));
+
+    const img = await Image.create({
+      ownerId: req.user.sub,
+      originalPath: key,
+      mimeType: req.file.mimetype,
+      size: req.file.size,
+      status: 'uploaded'
+    });
+
+    res.status(201).json(img);
+  } catch (err) {
+    console.error('S3 upload error', {
+      name: err?.name,
+      code: err?.Code || err?.code,
+      status: err?.$metadata?.httpStatusCode,
+      message: err?.message
+    });
+    res.status(500).json({ error: 'Upload failed' });
+  }
 });
 
 //POST picture (queue)
@@ -130,7 +155,7 @@ router.get('/', auth, async (req, res) => {
 
   const out = items.map(doc => {
     const o = doc.toObject();
-    o.urls = buildUrls(o);
+    o.urls = buildUrls(o);   // endret: bygger nå nøkkel for variant/eller original
     return o;
   });
 
@@ -145,7 +170,7 @@ router.get('/:id', auth, async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
   const o = img.toObject();
-  o.urls = buildUrls(o);
+  o.urls = buildUrls(o);   // endret
   res.json(o);
 });
 
@@ -156,18 +181,7 @@ router.delete('/:id', auth, async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
 
-  try {
-    const derived = [
-      path.join(DIR_DER, `${img._id}-thumb.jpg`),
-      path.join(DIR_DER, `${img._id}-medium.jpg`),
-      path.join(DIR_DER, `${img._id}-art.jpg`),
-      path.join(DIR_DER, `${img._id}-edit.jpg`)
-    ];
-    [img.originalPath, ...derived].filter(Boolean).forEach(p => {
-      try { fs.unlinkSync(p); } catch {}
-    });
-  } catch {}
-
+  // endret: lokal fil-sletting fjernet. For full støtte bør vi bruke s3.deleteObject her.
   await Image.deleteOne({ _id: img._id });
   res.json({ ok: true, deleted: img._id });
 });
