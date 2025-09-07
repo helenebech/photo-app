@@ -49,7 +49,7 @@ const RESPONCE_TYPES = 'phone openid email';
 
 let client;
 async function initializeClient() {
-    const issuer = await Issuer.discover('https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_qVXLTJwBJ');
+    const issuer = await Issuer.discover('https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_m0pv1l4LB');
     client = new issuer.Client({
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
@@ -79,7 +79,7 @@ app.get('/', checkAuth, (_req, res) => {
       userInfo: _req.session.userInfo
     });
   } else {
-    res.sendFile(path.join(__dirname, 'public', 'login.html')); //home.ejs?
+    res.sendFile(path.join(__dirname, 'public', 'login.html')); 
   }
 });
 
@@ -100,16 +100,13 @@ app.get('/login',  (req, res) => {
     state: state,
     nonce: nonce,
   });
-  //const authUrl = `https://${COGNITO_DOMAIN}/login/continue?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=${scope}`
-  //const authUrl = 'https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login?client_id=7uqthmep27k07agt05acjdbqfs&response_type=code&scope=email+openid&redirect_uri=https%3A%2F%2Fd84l1y8p4kdic.cloudfront.net'
-  console.log("Auth URL:", authUrl);
-
   res.redirect(authUrl);
 });
 
 // Logout route
 app.get('/logout', (req, res) => {
     req.session.destroy();
+    console.log("trying to log out");
     const logoutUrl = `https://${COGNITO_DOMAIN}/logout?client_id=${CLIENT_ID}&logout_uri=${REDIRECT_URI}`;
     res.redirect(logoutUrl);
 });
@@ -140,7 +137,8 @@ app.get(getPathFromURL('https://d84l1y8p4kdic.cloudfront.net'), async (req, res)
         const userInfo = await client.userinfo(tokenSet.access_token);
         req.session.userInfo = userInfo;
 
-        res.redirect('/');
+        console.log(userInfo)
+        res.redirect('/app.html');
     } catch (err) {
         console.error('Callback error:', err);
         res.redirect('/');

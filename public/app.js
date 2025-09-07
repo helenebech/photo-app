@@ -35,7 +35,8 @@
       state.isAdmin = false; 
     }
 
-    qs('logoutBtn')?.addEventListener('click', () => redirectToLogin());
+    qs('logoutBtn')?.addEventListener('click', () => 
+      window.location.href = '/logout');
     qs('uploadBtn')?.addEventListener('click', () => uploadImg(qs('file')));
     qs('refreshBtn')?.addEventListener('click', listImgs);
 
