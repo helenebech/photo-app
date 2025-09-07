@@ -12,5 +12,9 @@ document.getElementById('loginBtn').onclick = async () => {
     return;
   }
   localStorage.setItem('token', j.token);
+  //kjør authenticate.js
   location.replace('/app.html');
 };
+
+  //må sende inn confirmation code for sign up
+  //så kjøre confirmation.js

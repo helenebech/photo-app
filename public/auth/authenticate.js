@@ -1,7 +1,17 @@
 import Cognito  from "@aws-sdk/client-cognito-identity-provider";
 import { CognitoJwtVerifier } from "aws-jwt-verify";
 import crypto from "crypto";
-import {userPoolId, clientId, clientSecret, username, password, email} from "authSecrets.js"
+import dotenv from 'dotenv';
+const username = "user2";
+const password = "Supersecret1!";
+const email = "marie.laukeland@gmail.com";
+dotenv.config();
+
+const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN; 
+const CLIENT_ID = process.env.COGNITO_CLIENT_ID; 
+const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET; 
+const REDIRECT_URI = process.env.COGNITO_REDIRECT_URI; 
+const USERPOOL_ID = process.env.COGNITO_USERPOOL_ID;
 
 function secretHash(clientId, clientSecret, username) {
   const hasher = crypto.createHmac('sha256', clientSecret);
@@ -10,15 +20,15 @@ function secretHash(clientId, clientSecret, username) {
 }
 
 const accessVerifier = CognitoJwtVerifier.create({
-  userPoolId: userPoolId,
+  userPoolId: USERPOOL_ID,
   tokenUse: "access",
-  clientId: clientId,
+  clientId: CLIENT_ID,
 });
 
 const idVerifier = CognitoJwtVerifier.create({
-  userPoolId: userPoolId,
+  userPoolId: USERPOOL_ID,
   tokenUse: "id",
-  clientId: clientId,
+  clientId: CLIENT_ID,
 });
 
 async function main() {
@@ -34,9 +44,9 @@ async function main() {
     AuthParameters: {
       USERNAME: username,
       PASSWORD: password,
-      SECRET_HASH: secretHash(clientId, clientSecret, username),
+      SECRET_HASH: secretHash(CLIENT_ID, CLIENT_SECRET, username),
     },
-    ClientId: clientId,
+    ClientId: CLIENT_ID,
     
   });
 
