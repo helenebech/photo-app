@@ -9,6 +9,7 @@ import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {Issuer, generators} from 'openid-client';
+//import { InitiateAuthCommand } from "@aws-sdk/client-cognito-identity-provider";
 
 import authRoutes from './routes/auth.js';
 import imageRoutes from './routes/images.js';
@@ -44,6 +45,7 @@ const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN;
 const CLIENT_ID = process.env.COGNITO_CLIENT_ID; 
 const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET; 
 const REDIRECT_URI = process.env.COGNITO_REDIRECT_URI; 
+const RESPONCE_TYPES = 'phone openid email';
 
 let client;
 async function initializeClient() {
@@ -52,7 +54,7 @@ async function initializeClient() {
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
         redirect_uris: REDIRECT_URI,
-        response_types: ['code']
+        response_types: RESPONCE_TYPES
     });
 };
 
@@ -72,12 +74,12 @@ function checkAuth (req, res, next) {
 //pages
 app.get('/', checkAuth, (_req, res) => {
   if (_req.isAuthenticated) {
-    res.render('home', {
+    res.render('/app.html', {
       isAuthenticated: true,
       userInfo: _req.session.userInfo
     });
   } else {
-    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+    res.sendFile(path.join(__dirname, 'public', 'login.html')); //home.ejs?
   }
 });
 
@@ -85,7 +87,7 @@ app.get('/app', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
 });
 
-app.get('/login', (req, res) => {
+app.get('/login',  (req, res) => {
   if(!client) return res.status(500).send('Auth client not initialized');
   const nonce = generators.nonce();
   const state = generators.state();
@@ -98,8 +100,11 @@ app.get('/login', (req, res) => {
     state: state,
     nonce: nonce,
   });
+  //const authUrl = `https://${COGNITO_DOMAIN}/login/continue?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=${scope}`
+  //const authUrl = 'https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login?client_id=7uqthmep27k07agt05acjdbqfs&response_type=code&scope=email+openid&redirect_uri=https%3A%2F%2Fd84l1y8p4kdic.cloudfront.net'
+  console.log("Auth URL:", authUrl);
 
-    res.redirect(authUrl);
+  res.redirect(authUrl);
 });
 
 // Logout route
@@ -141,7 +146,6 @@ app.get(getPathFromURL('https://d84l1y8p4kdic.cloudfront.net'), async (req, res)
         res.redirect('/');
     }
 });
-
 
 
 //API-routes

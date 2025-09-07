@@ -10,10 +10,8 @@ const confirmationCode = "640568";
 
 //secret info from .env file
 dotenv.config();
-const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN; 
 const CLIENT_ID = process.env.COGNITO_CLIENT_ID; 
 const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET; 
-const REDIRECT_URI = process.env.COGNITO_REDIRECT_URI;
 
 function secretHash(clientId, clientSecret, username) {
   const hasher = crypto.createHmac('sha256', clientSecret);

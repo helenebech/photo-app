@@ -1,16 +1,15 @@
 import Cognito from "@aws-sdk/client-cognito-identity-provider";
 import crypto from "crypto";
-//import {clientId, clientSecret, username, password, email} from ".env"
 import dotenv from 'dotenv';
+
+//user info
 const username = "user2";
 const password = "Supersecret1!";
 const email = "marie.laukeland@gmail.com";
-dotenv.config();
 
-const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN; 
+dotenv.config();
 const CLIENT_ID = process.env.COGNITO_CLIENT_ID; 
 const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET; 
-const REDIRECT_URI = process.env.COGNITO_REDIRECT_URI; 
 
 
 function secretHash(clientId, clientSecret, username) {
@@ -34,3 +33,6 @@ async function main() {
 }
 
 main();
+
+  //må sende inn confirmation code for sign up
+  //så kjøre confirmation.js

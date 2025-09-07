@@ -21,6 +21,7 @@
     return data;
   }
 
+  
   //initialize project and user-status (admin)
   function init() {
     state.token = localStorage.getItem('token');
