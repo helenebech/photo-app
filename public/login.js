@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loginLink.onclick = async(e) => {
     e.preventDefault();
     //window.location.href = '/login'
-    window.location.href = 'http://localhost:3000/login';
+   // window.location.href = 'http://localhost:3000/login';
   //   try {
   //  // Call your server endpoint
   //     const response = await fetch('/api/v1/auth/login', { credentials: 'include' }); // This hits app.get('/login') on the server
@@ -53,10 +53,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // Redirect to Cognito Hosted UI login page
     //const scope = "email openid phone";
 
-    //const loginUrl ='https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login?client_id=7uqthmep27k07agt05acjdbqfs&response_type=code&scope=email+openid+phone&redirect_uri=https%3A%2F%2Fd84l1y8p4kdic.cloudfront.net'
+    const loginUrl ='https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login?client_id=7uqthmep27k07agt05acjdbqfs&response_type=code&scope=email+openid+phone&redirect_uri=https%3A%2F%2Fd84l1y8p4kdic.cloudfront.net'
     // `https://${COGNITO_DOMAIN}/login?client_id=${CLIENT_ID}&response_type=code&scope=${encodeURIComponent(scope)}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
 
-    //window.location.href = loginUrl;
+    window.location.href = loginUrl;
   };
 });
 
