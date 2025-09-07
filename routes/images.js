@@ -1,25 +1,18 @@
-//This page defines API for uploading, processing, listing, retrieving, and (for admins) deleting images
+// This page defines API for uploading, processing, listing, retrieving, and (for admins) deleting images
 
 import express from 'express';
 import multer from 'multer';
 import jwt from 'jsonwebtoken';
-import sharp from "sharp";
-import crypto from 'crypto';               // endret
-// import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';  // endret
-import { PutObjectCommand } from '@aws-sdk/client-s3';              // endret (assistant): bruker felles s3-klient
+import sharp from 'sharp';
+import crypto from 'crypto';
+import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 
 import Image from '../models/Image.js';
-import { enqueue } from '../processing/queue.js';
-
-// endret (assistant): bruk felles S3-klient/konfig i stedet for å instansiere her
-import { s3, BUCKET } from '../config/s3.js'; // endret (assistant)
+import { s3, BUCKET } from '../config/s3.js';
 
 const router = express.Router();
 
-// endret: fjernet fs/path-diskoppsett, nå brukes S3
-// const s3 = new S3Client({ region: process.env.AWS_REGION });  // endret
-// const BUCKET = process.env.S3_BUCKET;                        // endret
-
+/* ----------------------------- auth helpers ----------------------------- */
 function auth(req, res, next) {
   const h = req.headers.authorization || '';
   const token = h.startsWith('Bearer ') ? h.slice(7) : null;
@@ -33,9 +26,9 @@ function auth(req, res, next) {
 }
 const isAdmin = (req) => req.user?.role === 'admin';
 
-// endret: bruk memoryStorage i stedet for diskStorage
+/* ----------------------------- upload config ---------------------------- */
 const upload = multer({
-  storage: multer.memoryStorage(),  // endret
+  storage: multer.memoryStorage(),
   fileFilter: (_req, file, cb) => {
     const ok = /image\/(jpeg|png|webp)/i.test(file.mimetype);
     cb(ok ? null : new Error('Only JPEG/PNG/WebP'), ok);
@@ -43,12 +36,9 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 }
 });
 
-//different versions of picture (quality, edit etc.) 
-// endret: buildUrls er ikke lenger knyttet til lokalt filsystem.
-// Du kan senere utvide til å generere presigned GET URLs fra S3.
-
-// endret (assistant): normaliser nøkkel hvis noen gamle dokumenter har lokal sti
-function normalizeKey(p) { // endret (assistant)
+/* ------------------------------- utilities ------------------------------ */
+// Normaliser nøkkel hvis noen gamle dokumenter har lokal sti
+function normalizeKey(p) {
   if (!p) return null;
   const s = String(p);
   const i = s.indexOf('/uploads/');
@@ -56,26 +46,28 @@ function normalizeKey(p) { // endret (assistant)
   return s.replace(/^\/+/, '');
 }
 
-// endret (assistant): vis edit-varianten hvis den finnes, ellers original
-function pickDisplayKey(doc) { // endret (assistant)
-  return doc?.variants?.editPath || doc?.originalPath || null;
-}
-
-// endret (assistant): returner nøkkelen som frontend vil slå opp via /api/v1/s3/view-url
+// Returner nøkler som frontend vil slå opp via /api/v1/s3/view-url
 function buildUrls(doc) {
   const v = doc.variants || {};
   return {
-    key: doc.originalPath || null,   // nøkkelen til original i S3
+    key: doc.originalPath || null,
     original: doc.originalPath || null,
-    thumb: v.thumbPath || null,
     medium: v.mediumPath || null,
-    edit: v.editPath || null         // 👈 viktig: nå får frontend u.edit
+    thumb: v.thumbPath || null,
+    edit: v.editPath || null
   };
 }
 
-//Endpoints POST, GET all, GET one, DELETE
+// Stream->Buffer helper for S3 GetObject
+async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const c of stream) chunks.push(c);
+  return Buffer.concat(chunks);
+}
 
-//POST picture
+/* --------------------------------- routes -------------------------------- */
+
+// POST /api/v1/images  (upload new image)
 router.post('/', auth, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Missing file' });
 
@@ -83,15 +75,13 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
   const key = `uploads/${crypto.randomUUID()}-${safeName}`;
 
   try {
-    // ✅ Normaliser EXIF-orientering før opplasting til S3
-    const fixedBuffer = await sharp(req.file.buffer)
-      .rotate()               // <- viktig
-      .toBuffer();
+    // Normaliser EXIF-orientering før opplasting til S3
+    const fixedBuffer = await sharp(req.file.buffer).rotate().toBuffer();
 
     await s3.send(new PutObjectCommand({
       Bucket: BUCKET,
       Key: key,
-      Body: fixedBuffer,      // <- bruk fixedBuffer
+      Body: fixedBuffer,
       ContentType: req.file.mimetype
     }));
 
@@ -115,7 +105,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
   }
 });
 
-//POST picture (queue)
+// POST /api/v1/images/:id/process  (apply grayscale -> save edit variant)
 router.post('/:id/process', auth, async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
@@ -124,20 +114,51 @@ router.post('/:id/process', auth, async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  const edit = req.body?.effect === 'grayscale'
-  ? { effect: 'grayscale' }
-  : undefined;
+  const effect = req.body?.effect;
 
-  if (['queued', 'processing'].includes(img.status)) {
-    return res.status(202).json({ ok: true, alreadyQueued: true });
+  // Foreløpig støtter vi kun grayscale; utvid senere ved behov.
+  if (effect !== 'grayscale') {
+    return res.json({ ok: true, skipped: true });
   }
 
-  await Image.findByIdAndUpdate(img._id, { status: 'queued' });
-  enqueue(img, edit ? { edit } : {});
-  res.json({ ok: true, id: img._id, queued: true, edit: !!edit });
+  try {
+    // 1) Hent original fra S3
+    const obj = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: img.originalPath }));
+    const buf = await streamToBuffer(obj.Body);
+
+    // 2) Prosesser: respekter EXIF + greyscale
+    const outBuf = await sharp(buf)
+      .rotate()
+      .grayscale()
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
+    // 3) Lag stabil key for edit-varianten
+    const editKey = img.originalPath.replace(/(\.[a-z0-9]+)?$/i, '_edit.jpg'); // uploads/abc.jpg -> uploads/abc_edit.jpg
+
+    // 4) Last opp edit til S3
+    await s3.send(new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: editKey,
+      Body: outBuf,
+      ContentType: 'image/jpeg'
+    }));
+
+    // 5) Oppdater DB med variants.editPath
+    await Image.updateOne(
+      { _id: img._id },
+      { $set: { 'variants.editPath': editKey, status: 'processed' } }
+    );
+
+    res.json({ ok: true, id: img._id, editKey });
+  } catch (e) {
+    console.error('process grayscale error', e);
+    await Image.updateOne({ _id: img._id }, { $set: { status: 'error' } });
+    res.status(500).json({ error: 'Processing failed' });
+  }
 });
 
-//GET all pictures
+// GET /api/v1/images  (list images)
 router.get('/', auth, async (req, res) => {
   const { page = 1, limit = 50, sort = '-createdAt', tag, all } = req.query;
 
@@ -155,14 +176,19 @@ router.get('/', auth, async (req, res) => {
 
   const out = items.map(doc => {
     const o = doc.toObject();
-    o.urls = buildUrls(o);   // endret: bygger nå nøkkel for variant/eller original
+    o.urls = buildUrls(o);
+    // Normaliser evt. gamle stier for sikkerhets skyld
+    if (o.urls.original) o.urls.original = normalizeKey(o.urls.original);
+    if (o.urls.medium)   o.urls.medium   = normalizeKey(o.urls.medium);
+    if (o.urls.thumb)    o.urls.thumb    = normalizeKey(o.urls.thumb);
+    if (o.urls.edit)     o.urls.edit     = normalizeKey(o.urls.edit);
     return o;
   });
 
   res.json({ items: out, page: p, limit: l, total, isAdmin: isAdmin(req) });
 });
 
-//GET one picture
+// GET /api/v1/images/:id  (get one)
 router.get('/:id', auth, async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
@@ -170,18 +196,22 @@ router.get('/:id', auth, async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
   const o = img.toObject();
-  o.urls = buildUrls(o);   // endret
+  o.urls = buildUrls(o);
+  if (o.urls.original) o.urls.original = normalizeKey(o.urls.original);
+  if (o.urls.medium)   o.urls.medium   = normalizeKey(o.urls.medium);
+  if (o.urls.thumb)    o.urls.thumb    = normalizeKey(o.urls.thumb);
+  if (o.urls.edit)     o.urls.edit     = normalizeKey(o.urls.edit);
   res.json(o);
 });
 
-//DELETE picture (admin only)
+// DELETE /api/v1/images/:id  (admin only)
 router.delete('/:id', auth, async (req, res) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'Admin only' });
 
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
 
-  // endret: lokal fil-sletting fjernet. For full støtte bør vi bruke s3.deleteObject her.
+  // NB: Om du vil slette S3-objekter også, legg til s3.deleteObject her.
   await Image.deleteOne({ _id: img._id });
   res.json({ ok: true, deleted: img._id });
 });
