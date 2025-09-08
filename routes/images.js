@@ -63,7 +63,7 @@ async function streamToBuffer(stream) {
 
 //ENDPOINTS
 
-//POST image
+//POST image (server-side upload med multer – kan beholdes som fallback)
 router.post('/', auth, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Missing file' });
 
@@ -97,6 +97,28 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
       message: err?.message
     });
     res.status(500).json({ error: 'Upload failed' });
+  }
+});
+
+//POST image (ny! registrer fra S3-key etter presigned upload)
+router.post('/from-key', auth, async (req, res) => {
+  try {
+    const { key, mimeType, size, title } = req.body || {};
+    if (!key) return res.status(400).json({ error: 'key required' });
+
+    const img = await Image.create({
+      ownerId: req.user.sub,
+      originalPath: key,
+      mimeType: mimeType || 'application/octet-stream',
+      size: size || 0,
+      title: title || null,
+      status: 'uploaded'
+    });
+
+    res.status(201).json(img);
+  } catch (e) {
+    console.error('from-key error', e);
+    res.status(500).json({ error: 'Could not register image' });
   }
 });
 

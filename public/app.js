@@ -41,25 +41,95 @@
     listImgs();
   }
 
-  //upload pictures to the gallary
+  // --- Hjelpefunksjoner for presigned GET (visning) ---
+
+  // hente signed GET-URL fra backend for privat S3
+  async function getViewUrlFromKey(key) {
+    if (!key) return null;
+    try {
+      const { url } = await fetchJSON(`/api/v1/s3/view-url?key=${encodeURIComponent(key)}`);
+      return url || null;
+    } catch {
+      return null;
+    }
+  }
+
+  // sjekk om en streng allerede er en http/https-URL
+  function isHttpUrl(str) {
+    return typeof str === 'string' && /^https?:\/\//i.test(str);
+  }
+
+  // finn beste kandidat (edit -> medium -> thumb -> original -> key),
+  // gjør S3-key -> presigned URL, og legg på cache-buster for ikke-presignede
+  async function resolveSrc(u) {
+    const candidate =
+      u?.edit || u?.medium || u?.thumb || u?.original || u?.art || u?.key || null;
+
+    if (!candidate) return null;
+
+    const rawUrl = isHttpUrl(candidate) ? candidate : await getViewUrlFromKey(candidate);
+    if (!rawUrl) return null;
+
+    // Ikke endre presignede S3-URLer (de inneholder X-Amz-*)
+    const isPresignedS3 = /[?&]X-Amz-Algorithm=AWS4-HMAC-SHA256/i.test(rawUrl);
+    if (isPresignedS3) return rawUrl;
+
+    const urlObj = new URL(rawUrl, window.location.origin);
+    urlObj.searchParams.set('v', Date.now().toString());
+    return urlObj.toString();
+  }
+
+  // --- Opplasting med presigned URLs ---
+  //upload pictures to the gallery (nå med presigned URLs)
   async function uploadImg(fileInput) {
+    const btn = qs('uploadBtn');
     try {
       const f = fileInput?.files?.[0];
       if (!f) { alert('Velg en fil'); return; }
 
-      const fd = new FormData();
-      fd.append('image', f);
+      // disable knapp for å hindre dobbeltklikk
+      if (btn) { btn.disabled = true; btn.textContent = 'Laster opp…'; }
 
-      const up = await fetch('/api/v1/images', { method: 'POST', headers: authHeaders(), body: fd });
-      const j = await up.json().catch(() => ({}));
-      if (!up.ok) { alert(j?.error || 'Feil ved opplasting'); return; }
+      // 1. Be backend om en presigned upload-URL
+      const contentType = f.type || 'application/octet-stream'; // må matche i PUT
+      const { uploadUrl, key } = await fetchJSON('/api/v1/s3/upload-url', {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ filename: f.name, contentType })
+      });
 
-      await fetch(`/api/v1/images/${j._id}/process`, { method: 'POST', headers: authHeaders() }).catch(() => {});
+      // 2. Last opp filen direkte til S3 med PUT (kun Content-Type, ingen auth-headere!)
+      const putRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': contentType },
+        body: f
+      });
 
+      if (!putRes.ok) {
+        const text = await putRes.text().catch(() => '');
+        console.error('S3 PUT failed', putRes.status, text);
+        alert(`Feil ved direkte opplasting til S3 (status ${putRes.status}).`);
+        return;
+      }
+
+      // 3. Registrer bildet i backend-databasen
+      const img = await fetchJSON('/api/v1/images/from-key', {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ key, mimeType: contentType, size: f.size, title: f.name })
+      });
+
+      // 4. Start prosessering (f.eks. grayscale)
+      await fetch(`/api/v1/images/${img._id}/process`, { method: 'POST', headers: authHeaders() }).catch(() => {});
+
+      // 5. Rydd opp og oppdater UI
+      fileInput.value = '';
       setTimeout(listImgs, 700);
     } catch (e) {
       console.error('uploadImg', e);
       alert('Nettverksfeil ved opplasting.');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Upload picture'; }
     }
   }
 
@@ -86,45 +156,6 @@
       grid.innerHTML = '<p style="opacity:.7">Could not fetch pictures✌︎︎</p>';
     }
   }
-
-  // hjelpefunksjon for å hente signed GET-URL fra backend for privat S3
-  async function getViewUrlFromKey(key) {
-    if (!key) return null;
-    try {
-      const { url } = await fetchJSON(`/api/v1/s3/view-url?key=${encodeURIComponent(key)}`);
-      return url || null;
-    } catch {
-      return null;
-    }
-  }
-
-  // endret (assistant): sjekk om en streng allerede er en http/https-URL
-  function isHttpUrl(str) {
-    return typeof str === 'string' && /^https?:\/\//i.test(str);
-  }
-
-  // endret (assistant): finn beste kandidat (edit -> thumb -> medium -> original -> key), gjør S3-key -> presigned URL, og legg på cache-buster
-  async function resolveSrc(u) {
-  // Velg beste kandidat
-  const candidate =
-    u?.edit  || u?.medium || u?.thumb || u?.original || u?.art || u?.key || null;
-
-  if (!candidate) return null;
-
-  // Hent URL (presigned hvis det er en S3-key)
-  const rawUrl = isHttpUrl(candidate) ? candidate : await getViewUrlFromKey(candidate);
-  if (!rawUrl) return null;
-
-  // VIKTIG: Ikke endre presignede S3-URLer (de inneholder X-Amz-*)
-  const isPresignedS3 = /[?&]X-Amz-Algorithm=AWS4-HMAC-SHA256/i.test(rawUrl);
-  if (isPresignedS3) return rawUrl;
-
-  // For ikke-presignede, kan du cache-buste trygt:
-  const urlObj = new URL(rawUrl, window.location.origin);
-  urlObj.searchParams.set('v', Date.now().toString());
-  return urlObj.toString();
-}
-
 
   //function for each seperate square in the gallery
   function makeTile(it) {

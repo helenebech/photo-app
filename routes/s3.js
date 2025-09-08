@@ -1,4 +1,5 @@
-//This page handles image upload and access with s3-buckets
+// routes/s3.js
+// Håndterer opplasting og visning av bilder via S3 med presigned URLs
 
 import express from "express";
 import crypto from "crypto";
@@ -7,15 +8,27 @@ import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import multer from "multer";
 import { s3, BUCKET } from "../config/s3.js";
+import jwt from "jsonwebtoken";
 
 const router = express.Router();
-
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-
 const upload = multer({ storage: multer.memoryStorage() });
 
-//POST
-router.post("/upload-url", async (req, res) => {
+// --- Hjelpefunksjon: auth ---
+function auth(req, res, next) {
+  const h = req.headers.authorization || "";
+  const token = h.startsWith("Bearer ") ? h.slice(7) : null;
+  if (!token) return res.status(401).json({ error: "Missing token" });
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+}
+
+// --- PRESIGNED PUT (for opplasting) ---
+router.post("/upload-url", auth, async (req, res) => {
   try {
     const { filename, contentType } = req.body || {};
     if (!filename || !contentType) {
@@ -26,7 +39,8 @@ router.post("/upload-url", async (req, res) => {
     }
 
     const datePrefix = new Date().toISOString().slice(0, 10).replace(/-/g, "/");
-    const key = `uploads/${datePrefix}/${crypto.randomUUID()}-${filename}`;
+    const userPrefix = req.user?.sub ? `${req.user.sub}/` : "";
+    const key = `uploads/${userPrefix}${datePrefix}/${crypto.randomUUID()}-${filename}`;
 
     const cmd = new PutObjectCommand({
       Bucket: BUCKET,
@@ -34,16 +48,17 @@ router.post("/upload-url", async (req, res) => {
       ContentType: contentType,
     });
 
+    // gyldig i 90 sekunder (kort, for opplasting)
     const uploadUrl = await getSignedUrl(s3, cmd, { expiresIn: 90 });
     res.json({ uploadUrl, key });
   } catch (e) {
-    console.error(e);
+    console.error("upload-url error", e);
     res.status(500).json({ error: "Could not create upload URL" });
   }
 });
 
-//POST 
-router.post("/upload-direct", upload.single("image"), async (req, res) => {
+// --- Direkte opplasting (fallback) ---
+router.post("/upload-direct", auth, upload.single("image"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "Missing file" });
     if (!ALLOWED.includes(req.file.mimetype)) {
@@ -73,18 +88,20 @@ router.post("/upload-direct", upload.single("image"), async (req, res) => {
   }
 });
 
-//GET
-router.get("/view-url", async (req, res) => {
+// --- PRESIGNED GET (for visning) ---
+router.get("/view-url", auth, async (req, res) => {
   try {
     const { key } = req.query;
-    if (!key) 
-      return res.status(400).json({ error: "key required" });
+    if (!key) return res.status(400).json({ error: "key required" });
+
     const rawKey = decodeURIComponent(String(key));
     const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: rawKey });
-    const url = await getSignedUrl(s3, cmd, { expiresIn: 300 });
+
+    // gyldig i 600 sekunder = 10 minutter
+    const url = await getSignedUrl(s3, cmd, { expiresIn: 600 });
     res.json({ url });
-    } catch (e) {
-    console.error(e);
+  } catch (e) {
+    console.error("view-url error", e);
     res.status(500).json({ error: "Could not create view URL" });
   }
 });
