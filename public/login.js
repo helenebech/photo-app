@@ -25,13 +25,13 @@
 document.addEventListener("DOMContentLoaded", () => {
   const loginLink = document.getElementById("loginLink");
 
-  // Check if the user is logged in (token in localStorage)
-  const token = localStorage.getItem("token");
-  if (token) {
-    // User is logged in → redirect to app.html
-    window.location.href = "app.html";
-    return;
-  }
+  // // Check if the user is logged in (token in localStorage)
+  // const token = localStorage.getItem("token");
+  // if (token) {
+  //   // User is logged in → redirect to app.html
+  //   window.location.href = "app.html";
+  //   return;
+  // }
 
   // If not logged in, set up login link
   loginLink.onclick = async(e) => {

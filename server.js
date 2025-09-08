@@ -47,6 +47,7 @@ const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET;
 const REDIRECT_URI = process.env.COGNITO_REDIRECT_AFTERLOGIN; 
 const AFTERLOGIN = process.env.COGNITO_REDIRECT_AFTERLOGIN;
 const RESPONCE_TYPES = ['code'];
+const logout_uri = '/';
 
 let client;
 async function initializeClient() {
@@ -73,12 +74,14 @@ function checkAuth (req, res, next) {
 
 //pages
 app.get('/', checkAuth, (_req, res) => {
+  console.log(_req.isAuthenticated)
   if (_req.isAuthenticated) {
     res.render('/app.html', {
       isAuthenticated: true,
       userInfo: _req.session.userInfo
     });
   } else {
+    console.log("is not auth so in get(/) to login page")
     res.sendFile(path.join(__dirname, 'public', 'login.html')); 
   }
 });
@@ -95,12 +98,13 @@ app.get('/login',  (req, res) => {
   req.session.nonce = nonce;
   req.session.state = state;
 
-  const authUrl = client.authorizationUrl({
-    scope: 'phone openid email',
-    state: state,
-    nonce: nonce,
-    redirect_uri: REDIRECT_URI,
-  });
+  // const authUrl = client.authorizationUrl({
+  //   scope: 'phone openid email',
+  //   state: state,
+  //   nonce: nonce,
+  //   redirect_uri: REDIRECT_URI,
+  // });
+  const authUrl = 'https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login?client_id=7uqthmep27k07agt05acjdbqfs&response_type=code&scope=email+openid+phone&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapp.html';
   res.redirect(authUrl);
 });
 
@@ -108,35 +112,35 @@ app.get('/login',  (req, res) => {
 app.get('/logout', (req, res) => {
     req.session.destroy();
     console.log("trying to log out");
-    const logoutUrl = `https://${COGNITO_DOMAIN}/logout?client_id=${CLIENT_ID}&logout_uri=${REDIRECT_URI}`;
+    const logoutUrl = 'https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login?client_id=7uqthmep27k07agt05acjdbqfs&response_type=code&scope=email+openid+phone&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapp.html';
     res.redirect(logoutUrl);
 });
 
-app.get('/callback', async (req, res) => {
-  console.log("ties to callback");
-    try {
-        const params = client.callbackParams(req);
-        const tokenSet = await client.callback(
-            REDIRECT_URI,
-            params,
-            {
-                nonce: req.session.nonce,
-                state: req.session.state
-            }
-        );
+// app.get('/callback', async (req, res) => {
+//   console.log("ties to callback");
+//     try {
+//         const params = client.callbackParams(req);
+//         const tokenSet = await client.callback(
+//             REDIRECT_URI,
+//             params,
+//             {
+//                 nonce: req.session.nonce,
+//                 state: req.session.state
+//             }
+//         );
 
-        const userInfo = await client.userinfo(tokenSet.access_token);
-        req.session.userInfo = userInfo;
+//         const userInfo = await client.userinfo(tokenSet.access_token);
+//         req.session.userInfo = userInfo;
 
-        console.log('Logged in user:', userInfo);
+//         console.log('Logged in user:', userInfo);
 
-        // ✅ redirect to app.html
-        res.redirect('/app');
-    } catch (err) {
-        console.error('Callback error:', err);
-        res.redirect('/');
-    }
-});
+//         // ✅ redirect to app.html
+//         res.redirect('/app');
+//     } catch (err) {
+//         console.error('Callback error:', err);
+//         res.redirect('/');
+//     }
+// });
 
 // Helper function to get the path from the URL. Example: "http://localhost/hello" returns "/hello"
 // function getPathFromURL(urlString) {
