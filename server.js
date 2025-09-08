@@ -44,7 +44,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN; 
 const CLIENT_ID = process.env.COGNITO_CLIENT_ID; 
 const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET; 
-const REDIRECT_URI = process.env.COGNITO_REDIRECT_AFTERLOGIN; 
+const REDIRECT_URI ='http://localhost:3000/app.html'; //process.env.COGNITO_REDIRECT_AFTERLOGIN; 
 const AFTERLOGIN = process.env.COGNITO_REDIRECT_AFTERLOGIN;
 const RESPONCE_TYPES = ['code'];
 const logout_uri = '/';
@@ -97,6 +97,13 @@ app.get('/login',  (req, res) => {
 
   req.session.nonce = nonce;
   req.session.state = state;
+
+  //   const authUrl = client.authorizationUrl({
+  //   scope: 'openid email phone',
+  //   state: state,
+  //   nonce: nonce,
+  //   redirect_uri: REDIRECT_URI,
+  // });
 
   // const authUrl = client.authorizationUrl({
   //   scope: 'phone openid email',
