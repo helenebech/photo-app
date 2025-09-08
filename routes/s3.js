@@ -48,7 +48,7 @@ router.post("/upload-url", auth, async (req, res) => {
       ContentType: contentType,
     });
 
-    // gyldig i 90 sekunder (kort, for opplasting)
+    // gyldig i 90 sekunder (kort levetid for opplasting)
     const uploadUrl = await getSignedUrl(s3, cmd, { expiresIn: 90 });
     res.json({ uploadUrl, key });
   } catch (e) {
@@ -98,6 +98,7 @@ router.get("/view-url", auth, async (req, res) => {
     const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: rawKey });
 
     // gyldig i 600 sekunder = 10 minutter
+    // du kan endre dette til f.eks. 60 (1 min) hvis du vil være strengere
     const url = await getSignedUrl(s3, cmd, { expiresIn: 600 });
     res.json({ url });
   } catch (e) {
