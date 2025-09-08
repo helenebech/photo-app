@@ -44,7 +44,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN; 
 const CLIENT_ID = process.env.COGNITO_CLIENT_ID; 
 const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET; 
-const REDIRECT_URI ='http://localhost:3000/app.html'; //process.env.COGNITO_REDIRECT_AFTERLOGIN; 
+const REDIRECT_URI =process.env.COGNITO_REDIRECT_URI; //process.env.COGNITO_REDIRECT_AFTERLOGIN; 
 const AFTERLOGIN = process.env.COGNITO_REDIRECT_AFTERLOGIN;
 const RESPONCE_TYPES = ['code'];
 const logout_uri = '/';
@@ -98,12 +98,12 @@ app.get('/login',  (req, res) => {
   req.session.nonce = nonce;
   req.session.state = state;
 
-  //   const authUrl = client.authorizationUrl({
-  //   scope: 'openid email phone',
-  //   state: state,
-  //   nonce: nonce,
-  //   redirect_uri: REDIRECT_URI,
-  // });
+    const authUrl = client.authorizationUrl({
+    scope: 'openid email phone',
+    state: state,
+    nonce: nonce,
+    redirect_uri: REDIRECT_URI,
+  });
 
   // const authUrl = client.authorizationUrl({
   //   scope: 'phone openid email',
@@ -111,7 +111,7 @@ app.get('/login',  (req, res) => {
   //   nonce: nonce,
   //   redirect_uri: REDIRECT_URI,
   // });
-  const authUrl = 'https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login?client_id=7uqthmep27k07agt05acjdbqfs&response_type=code&scope=email+openid+phone&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapp.html';
+  //const authUrl = 'https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login?client_id=7uqthmep27k07agt05acjdbqfs&response_type=code&scope=email+openid+phone&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapp.html';
   res.redirect(authUrl);
 });
 
@@ -121,6 +121,26 @@ app.get('/logout', (req, res) => {
     console.log("trying to log out");
     const logoutUrl = 'https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login?client_id=7uqthmep27k07agt05acjdbqfs&response_type=code&scope=email+openid+phone&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapp.html';
     res.redirect(logoutUrl);
+});
+
+app.get('/callback', async (req, res) => {
+  const params = client.callbackParams(req);
+  
+  try {
+    const tokenSet = await client.callback(REDIRECT_URI, params, {
+      state: req.session.state,
+      nonce: req.session.nonce,
+    });
+
+    console.log('ID Token:', tokenSet.id_token);
+    console.log('Access Token:', tokenSet.access_token);
+
+    res.send('Login success! Check console for tokens.');
+    //res.redirect('/app');
+  } catch (err) {
+    console.error('Callback error:', err);
+    res.redirect('/');
+  }
 });
 
 // app.get('/callback', async (req, res) => {
