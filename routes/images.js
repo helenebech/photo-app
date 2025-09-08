@@ -2,24 +2,17 @@
 
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
 import jwt from 'jsonwebtoken';
-import { fileURLToPath } from 'url';
+import sharp from 'sharp';
+import crypto from 'crypto';
+import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 
 import Image from '../models/Image.js';
-import { enqueue } from '../processing/queue.js';
+import { s3, BUCKET } from '../config/s3.js';
 
 const router = express.Router();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-const ROOT       = path.join(__dirname, '..');
-const DIR_ORIG   = path.join(ROOT, 'uploads', 'originals');
-const DIR_DER    = path.join(ROOT, 'uploads', 'derived');
-
-fs.mkdirSync(DIR_ORIG, { recursive: true });
-fs.mkdirSync(DIR_DER,  { recursive: true });
+//Helper-functions (authentication++)
 
 function auth(req, res, next) {
   const h = req.headers.authorization || '';
@@ -34,17 +27,8 @@ function auth(req, res, next) {
 }
 const isAdmin = (req) => req.user?.role === 'admin';
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, DIR_ORIG),
-  filename: (_req, file, cb) => {
-    const safe = file.originalname.normalize('NFC').replace(/[^\w.\-]+/g, '_');
-    cb(null, Date.now() + '-' + safe);
-  }
-});
-
-//Only accepts JPEG, PNG, WebP
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter: (_req, file, cb) => {
     const ok = /image\/(jpeg|png|webp)/i.test(file.mimetype);
     cb(ok ? null : new Error('Only JPEG/PNG/WebP'), ok);
@@ -52,45 +36,93 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 }
 });
 
-const exists = (p) => { try { return p && fs.existsSync(p); } catch { return false; } };
+function normalizeKey(p) {
+  if (!p) return null;
+  const s = String(p);
+  const i = s.indexOf('/uploads/');
+  if (i >= 0) return s.slice(i + 1); 
+  return s.replace(/^\/+/, '');
+}
 
-//different versions of picture (quality, edit etc.) 
 function buildUrls(doc) {
-  const id = doc._id;
-  const origName = doc.originalPath ? path.basename(doc.originalPath) : null;
-
-  const thumbP  = path.join(DIR_DER, `${id}-thumb.jpg`);
-  const mediumP = path.join(DIR_DER, `${id}-medium.jpg`);
-  const artP    = path.join(DIR_DER, `${id}-art.jpg`);
-  const editP   = path.join(DIR_DER, `${id}-edit.jpg`);
-
+  const v = doc.variants || {};
   return {
-    thumb:    exists(thumbP)  ? `/uploads/derived/${id}-thumb.jpg`  : null,
-    medium:   exists(mediumP) ? `/uploads/derived/${id}-medium.jpg` : null,
-    art:      exists(artP)    ? `/uploads/derived/${id}-art.jpg`    : null,
-    edit:     exists(editP)   ? `/uploads/derived/${id}-edit.jpg`   : null,
-    original: origName ? `/uploads/originals/${origName}` : null
+    key: doc.originalPath || null,
+    original: doc.originalPath || null,
+    medium: v.mediumPath || null,
+    thumb: v.thumbPath || null,
+    edit: v.editPath || null
   };
 }
 
-//Endpoints POST, GET all, GET one, DELETE
+async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const c of stream) chunks.push(c);
+  return Buffer.concat(chunks);
+}
 
-//POST picture
+//ENDPOINTS
+
+//POST image (server-side upload med multer – kan beholdes som fallback)
 router.post('/', auth, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Missing file' });
 
-  const img = await Image.create({
-    ownerId: req.user.sub,
-    originalPath: req.file.path,
-    mimeType: req.file.mimetype,
-    size: req.file.size,
-    status: 'uploaded'
-  });
+  const safeName = req.file.originalname.normalize('NFC').replace(/[^\w.\-]+/g, '_');
+  const key = `uploads/${crypto.randomUUID()}-${safeName}`;
 
-  res.status(201).json(img);
+  try {
+    const fixedBuffer = await sharp(req.file.buffer).rotate().toBuffer();
+
+    await s3.send(new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: fixedBuffer,
+      ContentType: req.file.mimetype
+    }));
+
+    const img = await Image.create({
+      ownerId: req.user.sub,
+      originalPath: key,
+      mimeType: req.file.mimetype,
+      size: req.file.size,
+      status: 'uploaded'
+    });
+
+    res.status(201).json(img);
+  } catch (err) {
+    console.error('S3 upload error', {
+      name: err?.name,
+      code: err?.Code || err?.code,
+      status: err?.$metadata?.httpStatusCode,
+      message: err?.message
+    });
+    res.status(500).json({ error: 'Upload failed' });
+  }
 });
 
-//POST picture (queue)
+//POST image (ny! registrer fra S3-key etter presigned upload)
+router.post('/from-key', auth, async (req, res) => {
+  try {
+    const { key, mimeType, size, title } = req.body || {};
+    if (!key) return res.status(400).json({ error: 'key required' });
+
+    const img = await Image.create({
+      ownerId: req.user.sub,
+      originalPath: key,
+      mimeType: mimeType || 'application/octet-stream',
+      size: size || 0,
+      title: title || null,
+      status: 'uploaded'
+    });
+
+    res.status(201).json(img);
+  } catch (e) {
+    console.error('from-key error', e);
+    res.status(500).json({ error: 'Could not register image' });
+  }
+});
+
+//POST edited image
 router.post('/:id/process', auth, async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
@@ -99,20 +131,45 @@ router.post('/:id/process', auth, async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  const edit = req.body?.effect === 'grayscale'
-  ? { effect: 'grayscale' }
-  : undefined;
+  const effect = req.body?.effect;
 
-  if (['queued', 'processing'].includes(img.status)) {
-    return res.status(202).json({ ok: true, alreadyQueued: true });
+  if (effect !== 'grayscale') {
+    return res.json({ ok: true, skipped: true });
   }
 
-  await Image.findByIdAndUpdate(img._id, { status: 'queued' });
-  enqueue(img, edit ? { edit } : {});
-  res.json({ ok: true, id: img._id, queued: true, edit: !!edit });
+  try {
+    const obj = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: img.originalPath }));
+    const buf = await streamToBuffer(obj.Body);
+
+    const outBuf = await sharp(buf)
+      .rotate()
+      .grayscale()
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
+    const editKey = img.originalPath.replace(/(\.[a-z0-9]+)?$/i, '_edit.jpg'); // uploads/abc.jpg -> uploads/abc_edit.jpg
+
+    await s3.send(new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: editKey,
+      Body: outBuf,
+      ContentType: 'image/jpeg'
+    }));
+
+    await Image.updateOne(
+      { _id: img._id },
+      { $set: { 'variants.editPath': editKey, status: 'processed' } }
+    );
+
+    res.json({ ok: true, id: img._id, editKey });
+  } catch (e) {
+    console.error('process grayscale error', e);
+    await Image.updateOne({ _id: img._id }, { $set: { status: 'error' } });
+    res.status(500).json({ error: 'Processing failed' });
+  }
 });
 
-//GET all pictures
+//GET all images
 router.get('/', auth, async (req, res) => {
   const { page = 1, limit = 50, sort = '-createdAt', tag, all } = req.query;
 
@@ -131,13 +188,17 @@ router.get('/', auth, async (req, res) => {
   const out = items.map(doc => {
     const o = doc.toObject();
     o.urls = buildUrls(o);
+    if (o.urls.original) o.urls.original = normalizeKey(o.urls.original);
+    if (o.urls.medium)   o.urls.medium   = normalizeKey(o.urls.medium);
+    if (o.urls.thumb)    o.urls.thumb    = normalizeKey(o.urls.thumb);
+    if (o.urls.edit)     o.urls.edit     = normalizeKey(o.urls.edit);
     return o;
   });
 
   res.json({ items: out, page: p, limit: l, total, isAdmin: isAdmin(req) });
 });
 
-//GET one picture
+//GET one image
 router.get('/:id', auth, async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
@@ -146,27 +207,19 @@ router.get('/:id', auth, async (req, res) => {
   }
   const o = img.toObject();
   o.urls = buildUrls(o);
+  if (o.urls.original) o.urls.original = normalizeKey(o.urls.original);
+  if (o.urls.medium)   o.urls.medium   = normalizeKey(o.urls.medium);
+  if (o.urls.thumb)    o.urls.thumb    = normalizeKey(o.urls.thumb);
+  if (o.urls.edit)     o.urls.edit     = normalizeKey(o.urls.edit);
   res.json(o);
 });
 
-//DELETE picture (admin only)
+//DELETE image (admin)
 router.delete('/:id', auth, async (req, res) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'Admin only' });
 
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
-
-  try {
-    const derived = [
-      path.join(DIR_DER, `${img._id}-thumb.jpg`),
-      path.join(DIR_DER, `${img._id}-medium.jpg`),
-      path.join(DIR_DER, `${img._id}-art.jpg`),
-      path.join(DIR_DER, `${img._id}-edit.jpg`)
-    ];
-    [img.originalPath, ...derived].filter(Boolean).forEach(p => {
-      try { fs.unlinkSync(p); } catch {}
-    });
-  } catch {}
 
   await Image.deleteOne({ _id: img._id });
   res.json({ ok: true, deleted: img._id });

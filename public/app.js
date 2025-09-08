@@ -13,8 +13,8 @@
 
   async function fetchJSON(url, opts = {}) {
     const r = await fetch(url, { ...opts, headers: { ...(opts.headers || {}), ...authHeaders() } });
-    if (r.status === 401) { 
-      redirectToLogin(); return Promise.reject(new Error('Unauthorized')); 
+    if (r.status === 401) {
+      redirectToLogin(); return Promise.reject(new Error('Unauthorized'));
     }
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
@@ -29,9 +29,9 @@
     try {
       const payload = JSON.parse(atob(state.token.split('.')[1] || ''));
       state.isAdmin = payload?.role === 'admin';
-    } 
-    catch { 
-      state.isAdmin = false; 
+    }
+    catch {
+      state.isAdmin = false;
     }
 
     qs('logoutBtn')?.addEventListener('click', () => redirectToLogin());
@@ -41,29 +41,99 @@
     listImgs();
   }
 
-  //upload pictures to the gallary
+  // --- Hjelpefunksjoner for presigned GET (visning) ---
+
+  // hente signed GET-URL fra backend for privat S3
+  async function getViewUrlFromKey(key) {
+    if (!key) return null;
+    try {
+      const { url } = await fetchJSON(`/api/v1/s3/view-url?key=${encodeURIComponent(key)}`);
+      return url || null;
+    } catch {
+      return null;
+    }
+  }
+
+  // sjekk om en streng allerede er en http/https-URL
+  function isHttpUrl(str) {
+    return typeof str === 'string' && /^https?:\/\//i.test(str);
+  }
+
+  // finn beste kandidat (edit -> medium -> thumb -> original -> key),
+  // gjør S3-key -> presigned URL, og legg på cache-buster for ikke-presignede
+  async function resolveSrc(u) {
+    const candidate =
+      u?.edit || u?.medium || u?.thumb || u?.original || u?.art || u?.key || null;
+
+    if (!candidate) return null;
+
+    const rawUrl = isHttpUrl(candidate) ? candidate : await getViewUrlFromKey(candidate);
+    if (!rawUrl) return null;
+
+    // Ikke endre presignede S3-URLer (de inneholder X-Amz-*)
+    const isPresignedS3 = /[?&]X-Amz-Algorithm=AWS4-HMAC-SHA256/i.test(rawUrl);
+    if (isPresignedS3) return rawUrl;
+
+    const urlObj = new URL(rawUrl, window.location.origin);
+    urlObj.searchParams.set('v', Date.now().toString());
+    return urlObj.toString();
+  }
+
+  // --- Opplasting med presigned URLs ---
+  //upload pictures to the gallery (nå med presigned URLs)
   async function uploadImg(fileInput) {
+    const btn = qs('uploadBtn');
     try {
       const f = fileInput?.files?.[0];
       if (!f) { alert('Velg en fil'); return; }
 
-      const fd = new FormData();
-      fd.append('image', f);
+      // disable knapp for å hindre dobbeltklikk
+      if (btn) { btn.disabled = true; btn.textContent = 'Laster opp…'; }
 
-      const up = await fetch('/api/v1/images', { method: 'POST', headers: authHeaders(), body: fd });
-      const j = await up.json().catch(() => ({}));
-      if (!up.ok) { alert(j?.error || 'Feil ved opplasting'); return; }
+      // 1. Be backend om en presigned upload-URL
+      const contentType = f.type || 'application/octet-stream'; // må matche i PUT
+      const { uploadUrl, key } = await fetchJSON('/api/v1/s3/upload-url', {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ filename: f.name, contentType })
+      });
 
-      await fetch(`/api/v1/images/${j._id}/process`, { method: 'POST', headers: authHeaders() }).catch(() => {});
+      // 2. Last opp filen direkte til S3 med PUT (kun Content-Type, ingen auth-headere!)
+      const putRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': contentType },
+        body: f
+      });
 
+      if (!putRes.ok) {
+        const text = await putRes.text().catch(() => '');
+        console.error('S3 PUT failed', putRes.status, text);
+        alert(`Feil ved direkte opplasting til S3 (status ${putRes.status}).`);
+        return;
+      }
+
+      // 3. Registrer bildet i backend-databasen
+      const img = await fetchJSON('/api/v1/images/from-key', {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ key, mimeType: contentType, size: f.size, title: f.name })
+      });
+
+      // 4. Start prosessering (f.eks. grayscale)
+      await fetch(`/api/v1/images/${img._id}/process`, { method: 'POST', headers: authHeaders() }).catch(() => {});
+
+      // 5. Rydd opp og oppdater UI
+      fileInput.value = '';
       setTimeout(listImgs, 700);
     } catch (e) {
       console.error('uploadImg', e);
       alert('Nettverksfeil ved opplasting.');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Upload picture'; }
     }
   }
 
-  //fetches pictures for the gallery 
+  //fetches pictures for the gallery
   async function listImgs() {
     const grid = qs('gallery');
     if (!grid) return;
@@ -87,24 +157,37 @@
     }
   }
 
-  //function for each seperate square in the gallery 
+  //function for each seperate square in the gallery
   function makeTile(it) {
     const u = it.urls || {};
-    const base = u.edit || u.thumb || u.medium || u.original || u.art;
     const wrap = el('div', 'gallery-item');
-    if (!base) return wrap;
 
-    const src = it.updatedAt ? `${base}?v=${Date.parse(it.updatedAt) || ''}` : base;
-
-    //pictures
     const media = el('div', 'gallery-media');
     const img = new Image();
-    img.src = src;
     img.alt = it.title || it.filename || it._id || 'image';
-    img.onerror = () => {
-      const a = document.createElement('a');
-      a.href = base; a.textContent = it.filename || 'Open image'; a.target = '_blank';
-      media.replaceChildren(a);
+
+    // last inn bilde-URL (presigned hvis nødvendig)
+    (async () => {
+      const src = await resolveSrc(u);
+      if (!src) {
+        media.textContent = 'Ingen bilde-URL tilgjengelig';
+        return;
+      }
+      img.src = src; // bruk presigned URL nøyaktig som den er
+    })();
+
+    // fallback hvis lastingen feiler
+    img.onerror = async () => {
+      const href = await resolveSrc(u);
+      if (href) {
+        const a = document.createElement('a');
+        a.href = href;
+        a.textContent = it.filename || 'Open image';
+        a.target = '_blank';
+        media.replaceChildren(a);
+      } else {
+        media.textContent = 'Kunne ikke laste bildet';
+      }
     };
     media.appendChild(img);
 
@@ -112,7 +195,7 @@
     const actions = el('div', 'actions');
     actions.appendChild(actionBtn('Grayscale', async () => {
       await editImage(it._id, { effect: 'grayscale' });
-      setTimeout(listImgs, 500);
+      setTimeout(listImgs, 700);
     }));
     if (state.isAdmin) {
       actions.appendChild(actionBtn('Delete', async () => {
@@ -143,9 +226,9 @@
     wrap.append(media, actions, comments);
     renderComments(it._id, list);
     return wrap;
-}
+  }
 
-  //grayscaling pictures 
+  //grayscaling pictures
   async function editImage(id, edit) {
     try {
       await fetch(`/api/v1/images/${id}/process`, {
@@ -156,7 +239,7 @@
     } catch (e) { console.error('editImage', e); }
   }
 
-  //fetch comments 
+  //fetch comments
   async function renderComments(imageId, mount) {
     try {
       const { items = [] } = await fetchJSON(`/api/v1/comments?imageId=${encodeURIComponent(imageId)}`);
@@ -185,4 +268,3 @@
     return n;
   }
 })();
-
