@@ -44,8 +44,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN; 
 const CLIENT_ID = process.env.COGNITO_CLIENT_ID; 
 const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET; 
-const REDIRECT_URI = process.env.COGNITO_REDIRECT_URI; 
-const RESPONCE_TYPES = 'phone openid email';
+const REDIRECT_URI = process.env.COGNITO_REDIRECT_AFTERLOGIN; 
+const AFTERLOGIN = process.env.COGNITO_REDIRECT_AFTERLOGIN;
+const RESPONCE_TYPES = ['code'];
 
 let client;
 async function initializeClient() {
@@ -53,13 +54,12 @@ async function initializeClient() {
     client = new issuer.Client({
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
-        redirect_uris: REDIRECT_URI,
+        redirect_uris: [REDIRECT_URI],
         response_types: RESPONCE_TYPES
     });
 };
 
 initializeClient().catch(console.error);
-
 
 //authentication check
 function checkAuth (req, res, next) {
@@ -99,6 +99,7 @@ app.get('/login',  (req, res) => {
     scope: 'phone openid email',
     state: state,
     nonce: nonce,
+    redirect_uri: REDIRECT_URI,
   });
   res.redirect(authUrl);
 });
@@ -111,22 +112,12 @@ app.get('/logout', (req, res) => {
     res.redirect(logoutUrl);
 });
 
-// Helper function to get the path from the URL. Example: "http://localhost/hello" returns "/hello"
-function getPathFromURL(urlString) {
-    try {
-        const url = new URL(urlString);
-        return url.pathname;
-    } catch (error) {
-        console.error('Invalid URL:', error);
-        return null;
-    }
-}
-
-app.get(getPathFromURL('https://d84l1y8p4kdic.cloudfront.net'), async (req, res) => {
+app.get('/callback', async (req, res) => {
+  console.log("ties to callback");
     try {
         const params = client.callbackParams(req);
         const tokenSet = await client.callback(
-            'https://d84l1y8p4kdic.cloudfront.net',
+            REDIRECT_URI,
             params,
             {
                 nonce: req.session.nonce,
@@ -137,13 +128,49 @@ app.get(getPathFromURL('https://d84l1y8p4kdic.cloudfront.net'), async (req, res)
         const userInfo = await client.userinfo(tokenSet.access_token);
         req.session.userInfo = userInfo;
 
-        console.log(userInfo)
-        res.redirect('/app.html');
+        console.log('Logged in user:', userInfo);
+
+        // ✅ redirect to app.html
+        res.redirect('/app');
     } catch (err) {
         console.error('Callback error:', err);
         res.redirect('/');
     }
 });
+
+// Helper function to get the path from the URL. Example: "http://localhost/hello" returns "/hello"
+// function getPathFromURL(urlString) {
+//     try {
+//         const url = new URL(urlString);
+//         return url.pathname;
+//     } catch (error) {
+//         console.error('Invalid URL:', error);
+//         return null;
+//     }
+// }
+
+// app.get(getPathFromURL('https://d84l1y8p4kdic.cloudfront.net'), async (req, res) => {
+//     try {
+//         const params = client.callbackParams(req);
+//         const tokenSet = await client.callback(
+//             'https://d84l1y8p4kdic.cloudfront.net',
+//             params,
+//             {
+//                 nonce: req.session.nonce,
+//                 state: req.session.state
+//             }
+//         );
+
+//         const userInfo = await client.userinfo(tokenSet.access_token);
+//         req.session.userInfo = userInfo;
+
+//         console.log(userInfo)
+//         res.redirect('/app');
+//     } catch (err) {
+//         console.error('Callback error:', err);
+//         res.redirect('/');
+//     }
+// });
 
 
 //API-routes
