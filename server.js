@@ -162,7 +162,6 @@ app.get('/login',  (req, res) => {
 
 // Logout route
 app.get('/logout', (req, res) => {
-    req.session.destroy();
     console.log("trying to log out");
     const logoutUrl = 'https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login?client_id=7uqthmep27k07agt05acjdbqfs&response_type=code&scope=email+openid+phone&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapp.html';
     res.redirect(logoutUrl);
