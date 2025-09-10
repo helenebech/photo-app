@@ -35,10 +35,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN; 
 const CLIENT_ID = process.env.COGNITO_CLIENT_ID; 
 const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET; 
-const REDIRECT_URI =process.env.COGNITO_REDIRECT_URI; //process.env.COGNITO_REDIRECT_AFTERLOGIN; 
-const AFTERLOGIN = process.env.COGNITO_REDIRECT_AFTERLOGIN;
+const REDIRECT_URI =process.env.COGNITO_REDIRECT_URI; 
 const RESPONCE_TYPES = ['code'];
-const logout_uri = '/';
 
 let client;
 async function initializeClient() {
