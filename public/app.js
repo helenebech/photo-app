@@ -23,7 +23,6 @@
     if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
     return data;
   }
-
   
   //initialize project and user-status (admin)
   function init() {

@@ -9,7 +9,6 @@ import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {Issuer, generators} from 'openid-client';
-//import { InitiateAuthCommand } from "@aws-sdk/client-cognito-identity-provider";
 import {createRemoteJWKSet, jwtVerify} from 'jose'; 
 
 import authRoutes from './routes/auth.js';
@@ -24,26 +23,6 @@ const PORT = process.env.PORT || 3000;
 app.use(morgan('dev'));
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
-
-// app.use(
-//   session({
-//     secret: process.env.SESSION_SECRET || 'supersecret',
-//     resave: false,
-//     saveUninitialized: true,
-//     cookie: { secure: false , httpOnly:true}, // true if HTTPS
-//   })
-// );
-
-// app.use(session({
-//   secret: 'someSecretKey',
-//   resave: false,
-//   saveUninitialized: true,
-//   cookie: {
-//     secure: false,      // must be false on localhost
-//     httpOnly: true,
-//     sameSite: 'lax'     // important for OAuth redirects
-//   }
-// }));
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -80,13 +59,6 @@ const jwks = createRemoteJWKSet(
 
 //authentication check
 async function checkAuth (req, res, next) {
-    // if (!req.session.userInfo) {
-    //     req.isAuthenticated = false;
-    //     return res.redirect('/login.html');
-    // } else {
-    //     req.isAuthenticated = true;
-    // }
-    // next();
   console.log("Incoming request:", req.path);
   const authHeader = req.headers.authorization || '';
   console.log("Authorization header:", authHeader?.slice(0, 20) + '...');
@@ -98,7 +70,6 @@ async function checkAuth (req, res, next) {
     console.log("Before jwtVerify");
     const { payload } = await jwtVerify(token, jwks, {
       issuer: `https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_m0pv1l4LB`,
-      //audience: process.env.COGNITO_CLIENT_ID,
     }); 
     console.log("After jwtVerify");
     req.user = payload; // attach user info
@@ -131,13 +102,6 @@ app.get('/app', (_req, res) => {
 
 app.get('/login',  (req, res) => {
   if(!client) return res.status(500).send('Auth client not initialized');
-  // const nonce = generators.nonce();
-  // const state = generators.state();
-
-  // req.session.nonce = nonce;
-  // req.session.state = state;
-
-  //make sure you store the jwt correctly
   let authUrl;
   const maxAttempts = 5;
 
@@ -167,35 +131,6 @@ app.get('/logout', (req, res) => {
     res.redirect(logoutUrl);
 });
 
-// app.get('/callback', async (req, res) => {
-//   //const params = client.callbackParams(req);
-//   const { code, state } = req.query;
-//   if(!req.session.state || state != req.session.state){
-//     return res.status(403).send('Invalid state');
-//   }
-  
-//   try {
-//     const tokenSet = await client.callback(REDIRECT_URI, {code, state}, {
-//       state: req.session.state,
-//       nonce: req.session.nonce,
-//     });
-
-//     const userInfo = await client.userinfo(tokenSet.access_token);
-
-//     req.session.userInfo = userInfo; 
-//     req.session.tokenSet = tokenSet;
-
-//     console.log('ID Token:', tokenSet.id_token);
-//     console.log('Access Token:', tokenSet.access_token);
-
-//     res.send('Login success! Check console for tokens.');
-//     return res.redirect('/app');
-//   } catch (err) {
-//     console.error('Callback error:', err);
-//     return res.redirect('/');
-//   }
-// });
-
 app.get('/callback', async (req, res) => {
   console.log("ties to callback");
     try {
@@ -203,74 +138,19 @@ app.get('/callback', async (req, res) => {
         const tokenSet = await client.callback(
             REDIRECT_URI,
             params
-            // {
-            //     nonce: req.session?.nonce,
-            //     state: req.session?.state
-            // }
         );
-
+        console.log("access token:", tokenSet.access_token);
         res.send(`
           <script>
           localStorage.setItem('access_token', '${tokenSet.access_token}');
           window.location.href='/app';
           </script>
         `);
-
-    //     const userInfo = await client.userinfo(tokenSet.access_token);
-    //     req.session.userInfo = userInfo;
-    //     //localStorage.setItem('token', tokenSet.access_token)
-    //     //store jwt correctly
-
-    //     //console.log('Logged in user:', userInfo);
-    //     console.log('Session after login:', req.session);
-    //     // ✅ redirect to app.html
-    //     return res.send(`
-    //   <script>
-    //     localStorage.setItem('token', '${tokenSet.access_token}');
-    //     window.location.href = '/app';
-    //   </script>
-    // `);
-        //return res.redirect('/app');
     } catch (err) {
         console.error('Callback error:', err);
         res.redirect('/');
     }
 });
-
-// Helper function to get the path from the URL. Example: "http://localhost/hello" returns "/hello"
-// function getPathFromURL(urlString) {
-//     try {
-//         const url = new URL(urlString);
-//         return url.pathname;
-//     } catch (error) {
-//         console.error('Invalid URL:', error);
-//         return null;
-//     }
-// }
-
-// app.get(getPathFromURL('https://d84l1y8p4kdic.cloudfront.net'), async (req, res) => {
-//     try {
-//         const params = client.callbackParams(req);
-//         const tokenSet = await client.callback(
-//             'https://d84l1y8p4kdic.cloudfront.net',
-//             params,
-//             {
-//                 nonce: req.session.nonce,
-//                 state: req.session.state
-//             }
-//         );
-
-//         const userInfo = await client.userinfo(tokenSet.access_token);
-//         req.session.userInfo = userInfo;
-
-//         console.log(userInfo)
-//         res.redirect('/app');
-//     } catch (err) {
-//         console.error('Callback error:', err);
-//         res.redirect('/');
-//     }
-// });
-
 
 //API-routes
 app.use('/api/v1/auth', authRoutes);
