@@ -26,12 +26,15 @@ h1 {
 }
 
 section {
+    display: flex;            
+    flex-direction: column; 
+    justify-content: center;    
+    align-items: center;         
     border: 1px solid #ddd;
     padding: 1rem;
     border-radius: 12px;
     width: 60%;
     height: 300px;
-    align-items: center;
     max-width: 600px;
     margin: 0 auto;
     font-size: 20px;
@@ -55,7 +58,12 @@ input {
     font-size: 20px;
 }
 
-button {
+p{
+    font-size: 20px;
+    color: white;
+}
+
+a {
     padding: 0.6rem;
     width: 80%;
     font-size: large;
@@ -65,7 +73,7 @@ button {
     color: black;
 }
 
-button:hover {
+a:hover {
     background-color: #42899b;
     color: white;
 }
