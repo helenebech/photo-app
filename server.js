@@ -24,14 +24,25 @@ app.use(morgan('dev'));
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || 'supersecret',
-    resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false }, // true if HTTPS
-  })
-);
+// app.use(
+//   session({
+//     secret: process.env.SESSION_SECRET || 'supersecret',
+//     resave: false,
+//     saveUninitialized: true,
+//     cookie: { secure: false , httpOnly:true}, // true if HTTPS
+//   })
+// );
+
+app.use(session({
+  secret: 'someSecretKey',
+  resave: false,
+  saveUninitialized: true,
+  cookie: {
+    secure: false,      // must be false on localhost
+    httpOnly: true,
+    sameSite: 'lax'     // important for OAuth redirects
+  }
+}));
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -66,6 +77,7 @@ initializeClient().catch(console.error);
 function checkAuth (req, res, next) {
     if (!req.session.userInfo) {
         req.isAuthenticated = false;
+        return res.redirect('/login.html');
     } else {
         req.isAuthenticated = true;
     }
@@ -86,7 +98,7 @@ app.get('/', checkAuth, (_req, res) => {
   }
 });
 
-app.get('/app', (_req, res) => {
+app.get('/app', checkAuth, (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
 });
 
@@ -98,20 +110,25 @@ app.get('/login',  (req, res) => {
   req.session.nonce = nonce;
   req.session.state = state;
 
-    const authUrl = client.authorizationUrl({
-    scope: 'openid email phone',
-    state: state,
-    nonce: nonce,
-    redirect_uri: REDIRECT_URI,
-  });
+  let authUrl;
+  const maxAttempts = 5;
 
-  // const authUrl = client.authorizationUrl({
-  //   scope: 'phone openid email',
-  //   state: state,
-  //   nonce: nonce,
-  //   redirect_uri: REDIRECT_URI,
-  // });
-  //const authUrl = 'https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login?client_id=7uqthmep27k07agt05acjdbqfs&response_type=code&scope=email+openid+phone&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapp.html';
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      authUrl = client.authorizationUrl({
+        scope: 'phone openid email',
+        state: state,
+        nonce: nonce,
+        redirect_uri: REDIRECT_URI,
+      });
+     break;
+    } catch (error) {
+      console.warn(`Attempt ${attempt} failed: ${error.message}`);
+      if (attempt === maxAttempts) {
+        authUrl = 'https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login/continue?client_id=7uqthmep27k07agt05acjdbqfs&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapp.html&response_type=code&scope=email+openid+phone';
+      }
+    }
+  } 
   res.redirect(authUrl);
 });
 
@@ -123,51 +140,61 @@ app.get('/logout', (req, res) => {
     res.redirect(logoutUrl);
 });
 
-app.get('/callback', async (req, res) => {
-  const params = client.callbackParams(req);
-  
-  try {
-    const tokenSet = await client.callback(REDIRECT_URI, params, {
-      state: req.session.state,
-      nonce: req.session.nonce,
-    });
-
-    console.log('ID Token:', tokenSet.id_token);
-    console.log('Access Token:', tokenSet.access_token);
-
-    res.send('Login success! Check console for tokens.');
-    //res.redirect('/app');
-  } catch (err) {
-    console.error('Callback error:', err);
-    res.redirect('/');
-  }
-});
 
 // app.get('/callback', async (req, res) => {
-//   console.log("ties to callback");
-//     try {
-//         const params = client.callbackParams(req);
-//         const tokenSet = await client.callback(
-//             REDIRECT_URI,
-//             params,
-//             {
-//                 nonce: req.session.nonce,
-//                 state: req.session.state
-//             }
-//         );
+//   //const params = client.callbackParams(req);
+//   const { code, state } = req.query;
+//   if(!req.session.state || state != req.session.state){
+//     return res.status(403).send('Invalid state');
+//   }
+  
+//   try {
+//     const tokenSet = await client.callback(REDIRECT_URI, {code, state}, {
+//       state: req.session.state,
+//       nonce: req.session.nonce,
+//     });
 
-//         const userInfo = await client.userinfo(tokenSet.access_token);
-//         req.session.userInfo = userInfo;
+//     const userInfo = await client.userinfo(tokenSet.access_token);
 
-//         console.log('Logged in user:', userInfo);
+//     req.session.userInfo = userInfo; 
+//     req.session.tokenSet = tokenSet;
 
-//         // ✅ redirect to app.html
-//         res.redirect('/app');
-//     } catch (err) {
-//         console.error('Callback error:', err);
-//         res.redirect('/');
-//     }
+//     console.log('ID Token:', tokenSet.id_token);
+//     console.log('Access Token:', tokenSet.access_token);
+
+//     res.send('Login success! Check console for tokens.');
+//     return res.redirect('/app');
+//   } catch (err) {
+//     console.error('Callback error:', err);
+//     return res.redirect('/');
+//   }
 // });
+
+app.get('/callback', async (req, res) => {
+  console.log("ties to callback");
+    try {
+        const params = client.callbackParams(req);
+        const tokenSet = await client.callback(
+            REDIRECT_URI,
+            params,
+            {
+                nonce: req.session.nonce,
+                state: req.session.state
+            }
+        );
+
+        const userInfo = await client.userinfo(tokenSet.access_token);
+        req.session.userInfo = userInfo;
+
+        //console.log('Logged in user:', userInfo);
+        console.log('Session after login:', req.session);
+        // ✅ redirect to app.html
+        return res.redirect('/app');
+    } catch (err) {
+        console.error('Callback error:', err);
+        res.redirect('/');
+    }
+});
 
 // Helper function to get the path from the URL. Example: "http://localhost/hello" returns "/hello"
 // function getPathFromURL(urlString) {

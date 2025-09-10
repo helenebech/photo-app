@@ -3,19 +3,18 @@
 
   document.addEventListener('DOMContentLoaded', init);
 
-  const qs = (id) => document.getElementById(id);
-  const state = { token: null, isAdmin: false };
+   const qs = (id) => document.getElementById(id);
+  // const state = { token: null, isAdmin: false };
+  // const redirectToLogin = () => { localStorage.removeItem('token'); location.replace('/login.html'); };
 
-  const redirectToLogin = () => { localStorage.removeItem('token'); location.replace('/login.html'); };
-
-  const authHeaders = (extra = {}) =>
-    state.token ? { Authorization: 'Bearer ' + state.token, ...extra } : { ...extra };
+   const authHeaders = (extra = {}) =>
+     state.token ? { Authorization: 'Bearer ' + state.token, ...extra } : { ...extra };
 
   async function fetchJSON(url, opts = {}) {
     const r = await fetch(url, { ...opts, headers: { ...(opts.headers || {}), ...authHeaders() } });
-    if (r.status === 401) { 
-      redirectToLogin(); return Promise.reject(new Error('Unauthorized')); 
-    }
+    // if (r.status === 401) { 
+    //   redirectToLogin(); return Promise.reject(new Error('Unauthorized')); 
+    // }
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
     return data;
@@ -24,16 +23,17 @@
   
   //initialize project and user-status (admin)
   function init() {
-    state.token = localStorage.getItem('token');
-    if (!state.token) { redirectToLogin(); return; }
+    //state.token = localStorage.getItem('token');
+    console.log("State in app.js is:");
+    //if (!state.token) { redirectToLogin(); return; }
 
-    try {
-      const payload = JSON.parse(atob(state.token.split('.')[1] || ''));
-      state.isAdmin = payload?.role === 'admin';
-    } 
-    catch { 
-      state.isAdmin = false; 
-    }
+    // try {
+    //   const payload = JSON.parse(atob(state.token.split('.')[1] || ''));
+    //   state.isAdmin = payload?.role === 'admin';
+    // } 
+    // catch { 
+    //   state.isAdmin = false; 
+    // }
 
     qs('logoutBtn')?.addEventListener('click', () => 
       window.location.href = '/logout');
@@ -116,13 +116,13 @@
       await editImage(it._id, { effect: 'grayscale' });
       setTimeout(listImgs, 500);
     }));
-    if (state.isAdmin) {
-      actions.appendChild(actionBtn('Delete', async () => {
-        if (!confirm('Do you want to delete this picture?')) return;
-        await fetch(`/api/v1/images/${it._id}`, { method: 'DELETE', headers: authHeaders() });
-        listImgs();
-      }));
-    }
+    // if (state.isAdmin) {
+    //   actions.appendChild(actionBtn('Delete', async () => {
+    //     if (!confirm('Do you want to delete this picture?')) return;
+    //     await fetch(`/api/v1/images/${it._id}`, { method: 'DELETE', headers: authHeaders() });
+    //     listImgs();
+    //   }));
+    //}
 
     //comments
     const comments = el('div', 'comments');
