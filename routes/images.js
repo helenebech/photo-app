@@ -76,7 +76,7 @@ function buildUrls(doc) {
 //Endpoints POST, GET all, GET one, DELETE
 
 //POST picture
-router.post('/', auth, upload.single('image'), async (req, res) => {
+router.post('/', upload.single('image'), async (req, res) => { //commented out auth
   if (!req.file) return res.status(400).json({ error: 'Missing file' });
 
   const img = await Image.create({
@@ -91,7 +91,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
 });
 
 //POST picture (queue)
-router.post('/:id/process', auth, async (req, res) => {
+router.post('/:id/process', async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
 
@@ -113,7 +113,7 @@ router.post('/:id/process', auth, async (req, res) => {
 });
 
 //GET all pictures
-router.get('/', auth, async (req, res) => {
+router.get('/', async (req, res) => {
   const { page = 1, limit = 50, sort = '-createdAt', tag, all } = req.query;
 
   const query = (isAdmin(req) && all === '1') ? {} : { ownerId: req.user.sub };
@@ -138,7 +138,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 //GET one picture
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
   if (!isAdmin(req) && img.ownerId !== req.user.sub) {
@@ -150,7 +150,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 //DELETE picture (admin only)
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'Admin only' });
 
   const img = await Image.findById(req.params.id);
