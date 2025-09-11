@@ -8,10 +8,10 @@ import Image from '../models/Image.js';
 const router = express.Router();
 
 // Cognito auth gjøres i server.js; sørg for at vi har req.user
-router.use((req, res, next) => {
-  if (!req.user?.sub) return res.status(401).json({ error: 'Unauthorized' });
-  next();
-});
+// router.use((req, res, next) => {
+//   if (!req.user?.sub) return res.status(401).json({ error: 'Unauthorized' });
+//   next();
+// });
 
 // POST - make comment for a picture
 router.post('/', async (req, res) => {

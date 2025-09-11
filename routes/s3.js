@@ -14,10 +14,10 @@ const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Cognito auth gjøres i server.js; legg inn en guard for sikkerhets skyld
-router.use((req, res, next) => {
-  if (!req.user?.sub) return res.status(401).json({ error: "Unauthorized" });
-  next();
-});
+// router.use((req, res, next) => {
+//   if (!req.user?.sub) return res.status(401).json({ error: "Unauthorized" });
+//   next();
+// });
 
 // --- PRESIGNED PUT (for opplasting) ---
 router.post("/upload-url", async (req, res) => {
