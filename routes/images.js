@@ -12,14 +12,7 @@ import { s3, BUCKET } from '../config/s3.js';
 
 const router = express.Router();
 
-// Cognito auth gjøres i server.js via checkAuth når routeren mountes
-// Legg inn en enkel guard så vi alltid har req.user
-router.use((req, res, next) => {
-  if (!req.user?.sub) return res.status(401).json({ error: 'Unauthorized' });
-  next();
-});
-
-const isAdmin = (req) => req.user?.role === 'admin'; // evt. utvid med Cognito groups ved behov
+const isAdmin = (req) => req.session.user?.role === 'admin'; // evt. utvid med Cognito groups ved behov
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -73,7 +66,7 @@ router.post('/', upload.single('image'), async (req, res) => {
     }));
 
     const img = await Image.create({
-      ownerId: req.user.sub,
+      ownerId: req.session.user.sub,
       originalPath: key,
       mimeType: req.file.mimetype,
       size: req.file.size,
@@ -94,12 +87,14 @@ router.post('/', upload.single('image'), async (req, res) => {
 
 // POST image (registrer fra S3-key etter presigned upload)
 router.post('/from-key', async (req, res) => {
+  console.log('req.session:', req.session);
+  console.log('req.session.user.sub:', req.session.user.sub);
   try {
     const { key, mimeType, size, title } = req.body || {};
     if (!key) return res.status(400).json({ error: 'key required' });
 
     const img = await Image.create({
-      ownerId: req.user.sub,
+      ownerId: req.session.user.sub,
       originalPath: key,
       mimeType: mimeType || 'application/octet-stream',
       size: size || 0,
@@ -119,7 +114,7 @@ router.post('/:id/process', async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
 
-  if (!isAdmin(req) && img.ownerId !== req.user.sub) {
+  if (!isAdmin(req) && img.ownerId !== req.session.user.sub) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
@@ -165,7 +160,7 @@ router.post('/:id/process', async (req, res) => {
 router.get('/', async (req, res) => {
   const { page = 1, limit = 50, sort = '-createdAt', tag, all } = req.query;
 
-  const query = (isAdmin(req) && all === '1') ? {} : { ownerId: req.user.sub };
+  const query = (isAdmin(req) && all === '1') ? {} : { ownerId: req.session.user.sub };
   if (tag) query.tags = tag;
 
   const p = Math.max(parseInt(page, 10) || 1, 1);
@@ -194,7 +189,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
-  if (!isAdmin(req) && img.ownerId !== req.user.sub) {
+  if (!isAdmin(req) && img.ownerId !== req.session.user.sub) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   const o = img.toObject();

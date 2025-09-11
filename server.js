@@ -11,6 +11,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import {Issuer, generators} from 'openid-client';
 import {createRemoteJWKSet, jwtVerify} from 'jose'; 
+import jwt from 'jsonwebtoken';
 
 import authRoutes from './routes/auth.js';
 import imageRoutes from './routes/images.js';
@@ -23,7 +24,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(morgan('dev'));
-app.use(cors());
+app.use(cors({
+  credentials: true
+}));
 app.use(express.json({ limit: '2mb' }));
 
 const __filename = fileURLToPath(import.meta.url);
@@ -38,6 +41,7 @@ const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN;
 const CLIENT_ID = process.env.COGNITO_CLIENT_ID; 
 const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET; 
 const REDIRECT_URI = process.env.COGNITO_REDIRECT_URI; 
+const LOGOUT_URI = process.env.COGNITO_LOGOUT_URI;
 const RESPONCE_TYPES = ['code'];
 
 let client;
@@ -52,32 +56,60 @@ async function initializeClient() {
 }
 initializeClient().catch(console.error);
 
-const jwks = createRemoteJWKSet(
-  new URL('https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_m0pv1l4LB/.well-known/jwks.json')
-);
+app.use(session({
+    secret: 'some secret',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: false, // set true if you’re behind HTTPS
+      sameSite: 'lax' // 👈 allows sending cookies on same-site navigations + GET fetch
+    }
+}));
+
+function setUserSession(req, idToken) {
+  try {
+    // Decode without verifying signature if you trust Cognito for now
+    const payload = jwt.decode(idToken);
+
+    req.session.user = {
+      id_token: idToken,
+      sub: payload?.sub,
+      email: payload?.email,
+      role: payload?.role || (payload['cognito:groups']?.includes('Admin') ? 'admin' : 'user')
+    };
+  } catch (err) {
+    console.error('Failed to decode id_token:', err);
+    req.session.user = { id_token: idToken };
+  }
+}
+
 
 // authentication check (Cognito)
-async function checkAuth (req, res, next) {
-  try {
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.replace(/^Bearer\s+/, '');
-    if (!token) return res.status(401).send('No token provided');
-
-    const { payload } = await jwtVerify(token, jwks, {
-      issuer: `https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_m0pv1l4LB`,
-    }); 
-    req.user = payload;
-    next();
-  } catch (err) {
-    console.error("JWT verification failed:", err);
-    return res.status(401).send('Unauthorized');
+function checkAuth(req, res, next) {
+  console.log("Session content:", req.session.user);
+  if (req.session.user && req.session.user.id_token) {
+    return next();
   }
+  if (req.originalUrl.startsWith('/api/')) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  res.redirect('/login');
 }
 
 // pages
 app.get('/', (_req, res) => {
-  // Enkelt: vis login-side. Appen starter uansett via /callback → /app
-  res.sendFile(path.join(__dirname, 'public', 'login.html')); 
+  console.log(_req.isAuthenticated)
+  if (_req.session.user && _req.session.user.id_token) {
+    console.log("is auth so going to app.html");
+    res.render('/app', {
+      isAuthenticated: _req.isAuthenticated,
+      userInfo: _req.session.userInfo
+    });
+  } else {
+    console.log("is not auth so in get(/) to login page")
+    res.sendFile(path.join(__dirname, 'public', 'login.html')); 
+  }
 });
 
 app.get('/app', (_req, res) => {
@@ -86,46 +118,60 @@ app.get('/app', (_req, res) => {
 
 app.get('/login',  (req, res) => {
   if(!client) return res.status(500).send('Auth client not initialized');
-  let authUrl;
-  const maxAttempts = 5;
+    const nonce = generators.nonce();
+    const state = generators.state();
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      authUrl = client.authorizationUrl({
-        scope: 'phone openid email',
-        redirect_uri: REDIRECT_URI,
-      });
-     break;
-    } catch (error) {
-      console.warn(`Attempt ${attempt} failed: ${error.message}`);
-      if (attempt === maxAttempts) {
-        authUrl = 'https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login/continue?client_id=7uqthmep27k07agt05acjdbqfs&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapp.html&response_type=code&scope=email+openid+phone';
-      }
-    }
-  } 
-  res.redirect(authUrl);
+    req.session.nonce = nonce;
+    req.session.state = state;
+
+    const authUrl = client.authorizationUrl({
+        scope: 'email openid phone',
+        state: state,
+        nonce: nonce,
+    });
+
+    res.redirect(authUrl);
 });
 
 // Logout route
-app.get('/logout', (_req, res) => {
-  const logoutUrl = 'https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login?client_id=7uqthmep27k07agt05acjdbqfs&response_type=code&scope=email+openid+phone&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapp.html';
-  res.redirect(logoutUrl);
+app.get('/logout', (req, res) => {
+    // Destroy local session
+    req.session.destroy();
+
+    //const clientId = process.env.COGNITO_CLIENT_ID; 
+   // const logoutUri = process.env.COGNITO_LOGOUT_URI; 
+
+    const logoutUrl = `https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/logout?client_id=${CLIENT_ID}&logout_uri=${encodeURIComponent(LOGOUT_URI)}`;
+    res.redirect(logoutUrl);
 });
 
+
 app.get('/callback', async (req, res) => {
+  const params = client.callbackParams(req);
+  
   try {
-    const params = client.callbackParams(req);
-    const tokenSet = await client.callback(REDIRECT_URI, params);
-    res.send(`
-      <script>
-      localStorage.setItem('access_token', '${tokenSet.access_token}');
-      window.location.href='/app';
-      </script>
-    `);
+    const tokenSet = await client.callback(REDIRECT_URI, params, {
+      state: req.session.state,
+      nonce: req.session.nonce,
+    });
+    
+    const id_token = tokenSet.id_token; // or from Cognito SDK callback
+    setUserSession(req, id_token);
+
+    console.log('req.session.user after callback:', req.session.user);
+    console.log('ID Token:', tokenSet.id_token);
+
+    res.redirect('/app');
   } catch (err) {
     console.error('Callback error:', err);
     res.redirect('/');
   }
+});
+
+
+app.get('/api/v1/me', (req, res) => {
+  if (!req.session.user) return res.status(401).json({ error: 'Not authenticated' });
+  res.json(req.session.user);
 });
 
 // API routes
