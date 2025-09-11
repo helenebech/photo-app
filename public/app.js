@@ -2,18 +2,12 @@
   'use strict';
 
   document.addEventListener('DOMContentLoaded', init);
-  //console.log("LocalStorage keys:", Object.keys(localStorage));
-  //console.log("access_token in localStorage:", localStorage.getItem('access_token'));
-
 
   const qs = (id) => document.getElementById(id);
   const state = { token: null, isAdmin: false };
   const redirectToLogin = () => { 
-    //localStorage.removeItem('access_token'); 
     location.replace('/login'); };
 
-  // const authHeaders = (extra = {}) =>
-  //   state.token ? { Authorization: 'Bearer ' + state.token, ...extra } : { ...extra };
   const authHeaders = (extra = {}) => ({ ...extra });
 
   async function fetchJSON(url, opts = {}) {
@@ -22,7 +16,7 @@
     credentials: 'include',   // 👈 important: send session cookie
     headers: { ...(opts.headers || {}) }
   });
-  //const me = await fetch('/api/v1/me', { credentials: 'include' }).then(r => r.json());
+
     if (r.status === 401) { 
       console.log("Error in the fetchJSON in app.js");
       redirectToLogin(); 
@@ -32,54 +26,9 @@
     if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
     return data;
   }
-  
-  //initialize project and user-status (admin)
-  // function init() {
-  //   //state.token = localStorage.getItem('access_token');
-  //   //console.log("Token from localStorage:", localStorage.getItem('access_token'));
-  //   console.log("Auth headers would be:", authHeaders());   
-  //   console.log("State in app.js is:", state);
-  //   if (!state.token) { redirectToLogin(); return; }
 
-  //   try {
-  //     const payload = JSON.parse(atob(state.token.split('.')[1] || ''));
-  //     state.isAdmin = payload?.role === 'admin';
-  //   }
-  //   catch {
-  //     state.isAdmin = false;
-  //   }
-
-  //   qs('logoutBtn')?.addEventListener('click', () => { 
-  //     //localStorage.removeItem('access_token');
-  //     window.location.href = '/logout'});
-  //   qs('uploadBtn')?.addEventListener('click', () => uploadImg(qs('file')));
-  //   qs('refreshBtn')?.addEventListener('click', listImgs);
-
-  //   listImgs();
-  // }
-
-// function init() {
-//   // no token check anymore, session handled by server
-//   qs('logoutBtn')?.addEventListener('click', () => { 
-//     window.location.href = '/logout';
-//   });
-//   qs('uploadBtn')?.addEventListener('click', () => uploadImg(qs('file')));
-//   qs('refreshBtn')?.addEventListener('click', listImgs);
-
-//   listImgs();
-// }
 
   function init() {
-    //state.token = localStorage.getItem('token');
-    //if (!state.token) { redirectToLogin(); return; }
-
-    // try {
-    //   const payload = JSON.parse(atob(state.token.split('.')[1] || ''));
-    //   state.isAdmin = payload?.role === 'admin';
-    // } 
-    // catch { 
-    //   state.isAdmin = false; 
-    // }
 
     qs('logoutBtn')?.addEventListener('click', () => redirectToLogin());
     qs('uploadBtn')?.addEventListener('click', () => uploadImg(qs('file')));

@@ -24,9 +24,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(morgan('dev'));
-//app.use(cors());
 app.use(cors({
-  //origin: 'http://localhost:3000', // frontend origin
   credentials: true
 }));
 app.use(express.json({ limit: '2mb' }));
@@ -68,10 +66,6 @@ app.use(session({
     }
 }));
 
-const jwks = createRemoteJWKSet(
-  new URL('https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_m0pv1l4LB/.well-known/jwks.json')
-);
-
 function setUserSession(req, idToken) {
   try {
     // Decode without verifying signature if you trust Cognito for now
@@ -81,9 +75,8 @@ function setUserSession(req, idToken) {
       id_token: idToken,
       sub: payload?.sub,
       email: payload?.email,
-      //role: payload?.role || (payload['cognito:groups']?.includes('admin') ? 'admin' : 'user')
+      role: payload?.role || (payload['cognito:groups']?.includes('admin') ? 'admin' : 'user')
     };
-    console.log('req.session.user after decoding:', req.session.user);
   } catch (err) {
     console.error('Failed to decode id_token:', err);
     req.session.user = { id_token: idToken };
@@ -99,8 +92,6 @@ function checkAuth(req, res, next) {
   if (req.originalUrl.startsWith('/api/')) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
-
-  // For regular page requests, redirect to login
   res.redirect('/login');
 }
 
@@ -125,26 +116,6 @@ app.get('/app', (_req, res) => {
 
 app.get('/login',  (req, res) => {
   if(!client) return res.status(500).send('Auth client not initialized');
-  // let authUrl;
-  // const maxAttempts = 5;
-
-  // for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-  //   try {
-  //     authUrl = client.authorizationUrl({
-  //       scope: 'phone openid email',
-  //       // state: state,
-  //       // nonce: nonce,
-  //       redirect_uri: REDIRECT_URI,
-  //     });
-  //    break;
-  //   } catch (error) {
-  //     console.warn(`Attempt ${attempt} failed: ${error.message}`);
-  //     if (attempt === maxAttempts) {
-  //       authUrl = 'https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login/continue?client_id=7uqthmep27k07agt05acjdbqfs&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapp.html&response_type=code&scope=email+openid+phone';
-  //     }
-  //   }
-  // } 
-  // res.redirect(authUrl);
     const nonce = generators.nonce();
     const state = generators.state();
 
@@ -177,19 +148,10 @@ app.get('/callback', async (req, res) => {
     
     const id_token = tokenSet.id_token; // or from Cognito SDK callback
     setUserSession(req, id_token);
-    // req.session.user = {
-    //   id_token: tokenSet.id_token,
-    //   sub: tokenSet.claims['sub'],
-    //   email: tokenSet.claims.email,
-    //   role: tokenSet.claims['cognito:groups']?.includes('admin') ? 'admin' : undefined
-    // };
 
     console.log('req.session.user after callback:', req.session.user);
     console.log('ID Token:', tokenSet.id_token);
-    //req.session.user = {id_token: tokenSet.id_token};
-    //console.log('Access Token:', tokenSet.access_token);
 
-    //res.send('Login success! Check console for tokens.');
     res.redirect('/app');
   } catch (err) {
     console.error('Callback error:', err);

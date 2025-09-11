@@ -12,15 +12,7 @@ import { s3, BUCKET } from '../config/s3.js';
 
 const router = express.Router();
 
-// Cognito auth gjøres i server.js via checkAuth når routeren mountes
-// Legg inn en enkel guard så vi alltid har req.user
-// router.use((req, res, next) => {
-//   if (!req.session.user?.sub) return res.status(401).json({ error: 'Unauthorized' });
-//   next();
-// });
-
 const isAdmin = (req) => req.session.user?.role === 'admin'; // evt. utvid med Cognito groups ved behov
-//const user = (req) => req.session.user?.sub || 'unknown';
 
 const upload = multer({
   storage: multer.memoryStorage(),
