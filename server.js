@@ -75,13 +75,14 @@ function setUserSession(req, idToken) {
       id_token: idToken,
       sub: payload?.sub,
       email: payload?.email,
-      role: payload?.role || (payload['cognito:groups']?.includes('admin') ? 'admin' : 'user')
+      role: payload?.role || (payload['cognito:groups']?.includes('Admin') ? 'admin' : 'user')
     };
   } catch (err) {
     console.error('Failed to decode id_token:', err);
     req.session.user = { id_token: idToken };
   }
 }
+
 
 // authentication check (Cognito)
 function checkAuth(req, res, next) {
