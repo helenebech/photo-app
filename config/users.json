@@ -1,4 +1,5 @@
 [
   { "id": "u1", "username": "Helene", "password": "helene123", "role": "user" },
-  { "id": "u2", "username": "Admin",  "password": "admin123",  "role": "admin" }
+  { "id": "u2", "username": "Admin",  "password": "admin123",  "role": "admin" },
+  { "id": "u3", "username": "user2", "password": "Supersecret1!", "role": "user", "email": "marie.laukeland@gmail.com", "authCode": "640568"}
 ]

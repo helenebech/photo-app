@@ -63,8 +63,8 @@ async function streamToBuffer(stream) {
 
 //ENDPOINTS
 
-//POST image (server-side upload med multer – kan beholdes som fallback)
-router.post('/', auth, upload.single('image'), async (req, res) => {
+//POST picture
+router.post('/', upload.single('image'), async (req, res) => { //commented out auth
   if (!req.file) return res.status(400).json({ error: 'Missing file' });
 
   const safeName = req.file.originalname.normalize('NFC').replace(/[^\w.\-]+/g, '_');
@@ -169,8 +169,8 @@ router.post('/:id/process', auth, async (req, res) => {
   }
 });
 
-//GET all images
-router.get('/', auth, async (req, res) => {
+//GET all pictures
+router.get('/', async (req, res) => {
   const { page = 1, limit = 50, sort = '-createdAt', tag, all } = req.query;
 
   const query = (isAdmin(req) && all === '1') ? {} : { ownerId: req.user.sub };
@@ -198,8 +198,8 @@ router.get('/', auth, async (req, res) => {
   res.json({ items: out, page: p, limit: l, total, isAdmin: isAdmin(req) });
 });
 
-//GET one image
-router.get('/:id', auth, async (req, res) => {
+//GET one picture
+router.get('/:id', async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
   if (!isAdmin(req) && img.ownerId !== req.user.sub) {
@@ -214,8 +214,8 @@ router.get('/:id', auth, async (req, res) => {
   res.json(o);
 });
 
-//DELETE image (admin)
-router.delete('/:id', auth, async (req, res) => {
+//DELETE picture (admin only)
+router.delete('/:id', async (req, res) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'Admin only' });
 
   const img = await Image.findById(req.params.id);

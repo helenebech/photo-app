@@ -2,28 +2,34 @@
   'use strict';
 
   document.addEventListener('DOMContentLoaded', init);
+  console.log("LocalStorage keys:", Object.keys(localStorage));
+  console.log("access_token in localStorage:", localStorage.getItem('access_token'));
+
 
   const qs = (id) => document.getElementById(id);
   const state = { token: null, isAdmin: false };
-
-  const redirectToLogin = () => { localStorage.removeItem('token'); location.replace('/login.html'); };
+  const redirectToLogin = () => { localStorage.removeItem('access_token'); location.replace('/login.html'); };
 
   const authHeaders = (extra = {}) =>
     state.token ? { Authorization: 'Bearer ' + state.token, ...extra } : { ...extra };
 
   async function fetchJSON(url, opts = {}) {
     const r = await fetch(url, { ...opts, headers: { ...(opts.headers || {}), ...authHeaders() } });
-    if (r.status === 401) {
-      redirectToLogin(); return Promise.reject(new Error('Unauthorized'));
+    if (r.status === 401) { 
+      console.log("Error in the fetchJSON in app.js");
+      redirectToLogin(); return Promise.reject(new Error('Unauthorized')); 
     }
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
     return data;
   }
-
+  
   //initialize project and user-status (admin)
   function init() {
-    state.token = localStorage.getItem('token');
+    state.token = localStorage.getItem('access_token');
+    console.log("Token from localStorage:", localStorage.getItem('access_token'));
+    console.log("Auth headers would be:", authHeaders());   
+    console.log("State in app.js is:", state);
     if (!state.token) { redirectToLogin(); return; }
 
     try {
@@ -34,7 +40,9 @@
       state.isAdmin = false;
     }
 
-    qs('logoutBtn')?.addEventListener('click', () => redirectToLogin());
+    qs('logoutBtn')?.addEventListener('click', () => { 
+      localStorage.removeItem('access_token');
+      window.location.href = '/logout'});
     qs('uploadBtn')?.addEventListener('click', () => uploadImg(qs('file')));
     qs('refreshBtn')?.addEventListener('click', listImgs);
 
