@@ -101,7 +101,7 @@ router.post('/', upload.single('image'), async (req, res) => { //commented out a
 });
 
 //POST image (ny! registrer fra S3-key etter presigned upload)
-router.post('/from-key', auth, async (req, res) => {
+router.post('/from-key', async (req, res) => {
   try {
     const { key, mimeType, size, title } = req.body || {};
     if (!key) return res.status(400).json({ error: 'key required' });
@@ -123,7 +123,7 @@ router.post('/from-key', auth, async (req, res) => {
 });
 
 //POST edited image
-router.post('/:id/process', auth, async (req, res) => {
+router.post('/:id/process', async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
 
