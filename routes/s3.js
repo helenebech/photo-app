@@ -8,27 +8,19 @@ import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import multer from "multer";
 import { s3, BUCKET } from "../config/s3.js";
-import jwt from "jsonwebtoken";
 
 const router = express.Router();
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const upload = multer({ storage: multer.memoryStorage() });
 
-// --- Hjelpefunksjon: auth ---
-function auth(req, res, next) {
-  const h = req.headers.authorization || "";
-  const token = h.startsWith("Bearer ") ? h.slice(7) : null;
-  if (!token) return res.status(401).json({ error: "Missing token" });
-  try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ error: "Invalid token" });
-  }
-}
+// Cognito auth gjøres i server.js; legg inn en guard for sikkerhets skyld
+router.use((req, res, next) => {
+  if (!req.user?.sub) return res.status(401).json({ error: "Unauthorized" });
+  next();
+});
 
 // --- PRESIGNED PUT (for opplasting) ---
-router.post("/upload-url", auth, async (req, res) => {
+router.post("/upload-url", async (req, res) => {
   try {
     const { filename, contentType } = req.body || {};
     if (!filename || !contentType) {
@@ -48,7 +40,6 @@ router.post("/upload-url", auth, async (req, res) => {
       ContentType: contentType,
     });
 
-    // gyldig i 90 sekunder (kort levetid for opplasting)
     const uploadUrl = await getSignedUrl(s3, cmd, { expiresIn: 90 });
     res.json({ uploadUrl, key });
   } catch (e) {
@@ -58,7 +49,7 @@ router.post("/upload-url", auth, async (req, res) => {
 });
 
 // --- Direkte opplasting (fallback) ---
-router.post("/upload-direct", auth, upload.single("image"), async (req, res) => {
+router.post("/upload-direct", upload.single("image"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "Missing file" });
     if (!ALLOWED.includes(req.file.mimetype)) {
@@ -89,7 +80,7 @@ router.post("/upload-direct", auth, upload.single("image"), async (req, res) => 
 });
 
 // --- PRESIGNED GET (for visning) ---
-router.get("/view-url", auth, async (req, res) => {
+router.get("/view-url", async (req, res) => {
   try {
     const { key } = req.query;
     if (!key) return res.status(400).json({ error: "key required" });
@@ -97,8 +88,6 @@ router.get("/view-url", auth, async (req, res) => {
     const rawKey = decodeURIComponent(String(key));
     const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: rawKey });
 
-    // gyldig i 600 sekunder = 10 minutter
-    // du kan endre dette til f.eks. 60 (1 min) hvis du vil være strengere
     const url = await getSignedUrl(s3, cmd, { expiresIn: 600 });
     res.json({ url });
   } catch (e) {

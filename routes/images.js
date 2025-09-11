@@ -1,8 +1,8 @@
-//This page defines API for uploading, processing, listing, retrieving, and (for admins) deleting images
+// routes/images.js
+// This page defines API for uploading, processing, listing, retrieving, and (for admins) deleting images
 
 import express from 'express';
 import multer from 'multer';
-import jwt from 'jsonwebtoken';
 import sharp from 'sharp';
 import crypto from 'crypto';
 import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
@@ -12,20 +12,14 @@ import { s3, BUCKET } from '../config/s3.js';
 
 const router = express.Router();
 
-//Helper-functions (authentication++)
+// Cognito auth gjøres i server.js via checkAuth når routeren mountes
+// Legg inn en enkel guard så vi alltid har req.user
+router.use((req, res, next) => {
+  if (!req.user?.sub) return res.status(401).json({ error: 'Unauthorized' });
+  next();
+});
 
-function auth(req, res, next) {
-  const h = req.headers.authorization || '';
-  const token = h.startsWith('Bearer ') ? h.slice(7) : null;
-  if (!token) return res.status(401).json({ error: 'Missing token' });
-  try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-}
-const isAdmin = (req) => req.user?.role === 'admin';
+const isAdmin = (req) => req.user?.role === 'admin'; // evt. utvid med Cognito groups ved behov
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -61,10 +55,8 @@ async function streamToBuffer(stream) {
   return Buffer.concat(chunks);
 }
 
-//ENDPOINTS
-
-//POST picture
-router.post('/', upload.single('image'), async (req, res) => { //commented out auth
+// POST picture (multipart opplasting direkte til backend → S3)
+router.post('/', upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Missing file' });
 
   const safeName = req.file.originalname.normalize('NFC').replace(/[^\w.\-]+/g, '_');
@@ -100,7 +92,7 @@ router.post('/', upload.single('image'), async (req, res) => { //commented out a
   }
 });
 
-//POST image (ny! registrer fra S3-key etter presigned upload)
+// POST image (registrer fra S3-key etter presigned upload)
 router.post('/from-key', async (req, res) => {
   try {
     const { key, mimeType, size, title } = req.body || {};
@@ -122,7 +114,7 @@ router.post('/from-key', async (req, res) => {
   }
 });
 
-//POST edited image
+// POST edited image (grayscale)
 router.post('/:id/process', async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
@@ -147,7 +139,7 @@ router.post('/:id/process', async (req, res) => {
       .jpeg({ quality: 85 })
       .toBuffer();
 
-    const editKey = img.originalPath.replace(/(\.[a-z0-9]+)?$/i, '_edit.jpg'); // uploads/abc.jpg -> uploads/abc_edit.jpg
+    const editKey = img.originalPath.replace(/(\.[a-z0-9]+)?$/i, '_edit.jpg');
 
     await s3.send(new PutObjectCommand({
       Bucket: BUCKET,
@@ -169,7 +161,7 @@ router.post('/:id/process', async (req, res) => {
   }
 });
 
-//GET all pictures
+// GET all pictures
 router.get('/', async (req, res) => {
   const { page = 1, limit = 50, sort = '-createdAt', tag, all } = req.query;
 
@@ -198,7 +190,7 @@ router.get('/', async (req, res) => {
   res.json({ items: out, page: p, limit: l, total, isAdmin: isAdmin(req) });
 });
 
-//GET one picture
+// GET one picture
 router.get('/:id', async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
@@ -214,7 +206,7 @@ router.get('/:id', async (req, res) => {
   res.json(o);
 });
 
-//DELETE picture (admin only)
+// DELETE picture (admin only)
 router.delete('/:id', async (req, res) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'Admin only' });
 

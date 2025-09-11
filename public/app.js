@@ -8,7 +8,7 @@
 
   const qs = (id) => document.getElementById(id);
   const state = { token: null, isAdmin: false };
-  const redirectToLogin = () => { localStorage.removeItem('access_token'); location.replace('/login.html'); };
+  const redirectToLogin = () => { localStorage.removeItem('access_token'); location.replace('/login'); };
 
   const authHeaders = (extra = {}) =>
     state.token ? { Authorization: 'Bearer ' + state.token, ...extra } : { ...extra };

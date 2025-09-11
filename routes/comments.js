@@ -1,32 +1,23 @@
-//This page defines API for creating comments
+// routes/comments.js
+// This page defines API for creating comments
 
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import Comment from '../models/Comment.js';
 import Image from '../models/Image.js';
 
 const router = express.Router();
 
-//verifying 
-function auth(req, res, next) {
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
-  if (!token) {
-    return res.status(401).json({ error: 'No token' });
-  }
-  try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-}
+// Cognito auth gjøres i server.js; sørg for at vi har req.user
+router.use((req, res, next) => {
+  if (!req.user?.sub) return res.status(401).json({ error: 'Unauthorized' });
+  next();
+});
 
-//endpoints (POST, GET one)
+// POST - make comment for a picture
+router.post('/', async (req, res) => {
+  const { imageId, text } = req.body || {};
+  if (!imageId || !text) return res.status(400).json({ error: 'imageId and text required' });
 
-//POST - make comment for a picture
-router.post('/', async (req, res) => { //commented out auth
-  const { imageId, text } = req.body;
   const image = await Image.findById(imageId);
   if (!image) {
     return res.status(404).json({ error: 'Image not found' });
@@ -41,8 +32,8 @@ router.post('/', async (req, res) => { //commented out auth
   res.status(201).json(comment);
 });
 
-//GET - fetch comments on imageId
-router.get('/', async (req, res) => { //commented out auth
+// GET - fetch comments on imageId
+router.get('/', async (req, res) => {
   const { imageId } = req.query;
   const filter = imageId ? { imageId } : {};
   const comments = await Comment.find(filter)
