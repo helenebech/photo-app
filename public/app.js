@@ -142,7 +142,8 @@
       const { uploadUrl, key } = await fetchJSON('/api/v1/s3/upload-url', {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ filename: f.name, contentType })
+        body: JSON.stringify({ filename: f.name, contentType }), 
+        credentials: 'include'  // important to include session cookie
       });
 
       // 2. Last opp filen direkte til S3 med PUT (kun Content-Type, ingen auth-headere!)
@@ -163,7 +164,8 @@
       const img = await fetchJSON('/api/v1/images/from-key', {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ key, mimeType: contentType, size: f.size, title: f.name })
+        body: JSON.stringify({ key, mimeType: contentType, size: f.size, title: f.name }), 
+        credentials: 'include'  // important to include session cookie
       });
 
       // 4. Start prosessering (f.eks. grayscale)

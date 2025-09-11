@@ -96,7 +96,7 @@ router.post('/', upload.single('image'), async (req, res) => {
 // POST image (registrer fra S3-key etter presigned upload)
 router.post('/from-key', async (req, res) => {
   console.log('req.session:', req.session);
-  console.log('req.session.user:', req.session?.user);
+  console.log('req.session.user.sub:', req.session.user.sub);
   try {
     const { key, mimeType, size, title } = req.body || {};
     if (!key) return res.status(400).json({ error: 'key required' });

@@ -11,6 +11,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import {Issuer, generators} from 'openid-client';
 import {createRemoteJWKSet, jwtVerify} from 'jose'; 
+import jwt from 'jsonwebtoken';
 
 import authRoutes from './routes/auth.js';
 import imageRoutes from './routes/images.js';
@@ -23,7 +24,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(morgan('dev'));
-app.use(cors());
+//app.use(cors());
+app.use(cors({
+  //origin: 'http://localhost:3000', // frontend origin
+  credentials: true
+}));
 app.use(express.json({ limit: '2mb' }));
 
 const __filename = fileURLToPath(import.meta.url);
@@ -66,6 +71,24 @@ app.use(session({
 const jwks = createRemoteJWKSet(
   new URL('https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_m0pv1l4LB/.well-known/jwks.json')
 );
+
+function setUserSession(req, idToken) {
+  try {
+    // Decode without verifying signature if you trust Cognito for now
+    const payload = jwt.decode(idToken);
+
+    req.session.user = {
+      id_token: idToken,
+      sub: payload?.sub,
+      email: payload?.email,
+      //role: payload?.role || (payload['cognito:groups']?.includes('admin') ? 'admin' : 'user')
+    };
+    console.log('req.session.user after decoding:', req.session.user);
+  } catch (err) {
+    console.error('Failed to decode id_token:', err);
+    req.session.user = { id_token: idToken };
+  }
+}
 
 // authentication check (Cognito)
 function checkAuth(req, res, next) {
@@ -151,14 +174,17 @@ app.get('/callback', async (req, res) => {
       state: req.session.state,
       nonce: req.session.nonce,
     });
+    
+    const id_token = tokenSet.id_token; // or from Cognito SDK callback
+    setUserSession(req, id_token);
+    // req.session.user = {
+    //   id_token: tokenSet.id_token,
+    //   sub: tokenSet.claims['sub'],
+    //   email: tokenSet.claims.email,
+    //   role: tokenSet.claims['cognito:groups']?.includes('admin') ? 'admin' : undefined
+    // };
 
-    req.session.user = {
-      id_token: tokenSet.id_token,
-      sub: tokenSet.claims.sub,
-      email: tokenSet.claims.email,
-      role: tokenSet.claims['cognito:groups']?.includes('admin') ? 'admin' : undefined
-    };
-
+    console.log('req.session.user after callback:', req.session.user);
     console.log('ID Token:', tokenSet.id_token);
     //req.session.user = {id_token: tokenSet.id_token};
     //console.log('Access Token:', tokenSet.access_token);
@@ -170,6 +196,7 @@ app.get('/callback', async (req, res) => {
     res.redirect('/');
   }
 });
+
 
 app.get('/api/v1/me', (req, res) => {
   if (!req.session.user) return res.status(401).json({ error: 'Not authenticated' });
