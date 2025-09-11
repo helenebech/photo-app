@@ -41,6 +41,7 @@ const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN;
 const CLIENT_ID = process.env.COGNITO_CLIENT_ID; 
 const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET; 
 const REDIRECT_URI = process.env.COGNITO_REDIRECT_URI; 
+const LOGOUT_URI = process.env.COGNITO_LOGOUT_URI;
 const RESPONCE_TYPES = ['code'];
 
 let client;
@@ -133,10 +134,17 @@ app.get('/login',  (req, res) => {
 });
 
 // Logout route
-app.get('/logout', (_req, res) => {
-  const logoutUrl = 'https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/login?client_id=7uqthmep27k07agt05acjdbqfs&response_type=code&scope=email+openid+phone&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapp.html';
-  res.redirect(logoutUrl);
+app.get('/logout', (req, res) => {
+    // Destroy local session
+    req.session.destroy();
+
+    //const clientId = process.env.COGNITO_CLIENT_ID; 
+   // const logoutUri = process.env.COGNITO_LOGOUT_URI; 
+
+    const logoutUrl = `https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/logout?client_id=${CLIENT_ID}&logout_uri=${encodeURIComponent(LOGOUT_URI)}`;
+    res.redirect(logoutUrl);
 });
+
 
 app.get('/callback', async (req, res) => {
   const params = client.callbackParams(req);

@@ -6,7 +6,7 @@
   const qs = (id) => document.getElementById(id);
   const state = { token: null, isAdmin: false };
   const redirectToLogin = () => { 
-    location.replace('/login'); };
+    location.replace('/logout'); };
 
   const authHeaders = (extra = {}) => ({ ...extra });
 
