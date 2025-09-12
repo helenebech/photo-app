@@ -24,9 +24,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(morgan('dev'));
-app.use(cors({
-  credentials: true
-}));
+app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
 const __filename = fileURLToPath(import.meta.url);
@@ -60,16 +58,10 @@ app.use(session({
     secret: 'some secret',
     resave: false,
     saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: false, // set true if you’re behind HTTPS
-      sameSite: 'lax' // 👈 allows sending cookies on same-site navigations + GET fetch
-    }
 }));
 
 function setUserSession(req, idToken) {
   try {
-    // Decode without verifying signature if you trust Cognito for now
     const payload = jwt.decode(idToken);
 
     req.session.user = {
@@ -84,8 +76,7 @@ function setUserSession(req, idToken) {
   }
 }
 
-
-// authentication check (Cognito)
+// authentication check from cognito setup
 function checkAuth(req, res, next) {
   console.log("Session content:", req.session.user);
   if (req.session.user && req.session.user.id_token) {
@@ -98,18 +89,12 @@ function checkAuth(req, res, next) {
 }
 
 // pages
-app.get('/', (_req, res) => {
+app.get('/', checkAuth, (_req, res) => {
   console.log(_req.isAuthenticated)
-  if (_req.session.user && _req.session.user.id_token) {
-    console.log("is auth so going to app.html");
-    res.render('/app', {
-      isAuthenticated: _req.isAuthenticated,
-      userInfo: _req.session.userInfo
-    });
-  } else {
-    console.log("is not auth so in get(/) to login page")
-    res.sendFile(path.join(__dirname, 'public', 'login.html')); 
-  }
+  res.render('/app', {
+    isAuthenticated: _req.isAuthenticated,
+    userInfo: _req.session.userInfo
+  })
 });
 
 app.get('/app', (_req, res) => {
@@ -135,12 +120,7 @@ app.get('/login',  (req, res) => {
 
 // Logout route
 app.get('/logout', (req, res) => {
-    // Destroy local session
     req.session.destroy();
-
-    //const clientId = process.env.COGNITO_CLIENT_ID; 
-   // const logoutUri = process.env.COGNITO_LOGOUT_URI; 
-
     const logoutUrl = `https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/logout?client_id=${CLIENT_ID}&logout_uri=${encodeURIComponent(LOGOUT_URI)}`;
     res.redirect(logoutUrl);
 });
@@ -155,7 +135,7 @@ app.get('/callback', async (req, res) => {
       nonce: req.session.nonce,
     });
     
-    const id_token = tokenSet.id_token; // or from Cognito SDK callback
+    const id_token = tokenSet.id_token; 
     setUserSession(req, id_token);
 
     console.log('req.session.user after callback:', req.session.user);
@@ -177,7 +157,6 @@ app.get('/api/v1/me', (req, res) => {
 // API routes
 app.use('/api/v1/auth', authRoutes);
 
-// VIKTIG: beskytt med Cognito-auth før routers:
 app.use('/api/v1/images', checkAuth, imageRoutes);
 app.use('/api/v1/comments', checkAuth, commentRoutes);
 app.use('/api/v1/s3', checkAuth, s3Routes);
