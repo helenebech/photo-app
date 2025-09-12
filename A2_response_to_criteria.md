@@ -44,45 +44,19 @@ Overview
 - **Relevant files:**
     -
 
-### Third data service
-
-- **AWS service name:**  [eg. RDS]
-- **What data is being stored?:** [eg video metadata]
-- **Why is this service suited to this data?:** [eg. ]
-- **Why is are the other services used not suitable for this data?:** [eg. Advanced video search requires complex querries which are not available on S3 and inefficient on DynamoDB]
-- **Bucket/instance/table name:**
-- **Video timestamp:**
-- **Relevant files:**
-    -
-
 ### S3 Pre-signed URLs
 
-- **S3 Bucket names:**n12542407-photo-app
+- **S3 Bucket names:** n12542407-photo-app
 - **Video timestamp:**
 - **Relevant files:**
-    -
-
-### In-memory cache
-
-- **ElastiCache instance name:**
-- **What data is being cached?:** [eg. Thumbnails from YouTube videos obatined from external API]
-- **Why is this data likely to be accessed frequently?:** [ eg. Thumbnails from popular YouTube videos are likely to be shown to multiple users ]
-- **Video timestamp:**
-- **Relevant files:**
-    -
+    -config/s3.js
+    -routes/images.js
 
 ### Core - Statelessness
 
 - **What data is stored within your application that is not stored in cloud data services?:** [eg. intermediate video files that have been transcoded but not stabilised]
 - **Why is this data not considered persistent state?:** [eg. intermediate files can be recreated from source if they are lost]
 - **How does your application ensure data consistency if the app suddenly stops?:** [eg. journal used to record data transactions before they are done.  A separate task scans the journal and corrects problems on startup and once every 5 minutes afterwards. ]
-- **Relevant files:**
-    -
-
-### Graceful handling of persistent connections
-
-- **Type of persistent connection and use:** [eg. server-side-events for progress reporting]
-- **Method for handling lost connections:** [eg. client responds to lost connection by reconnecting and indicating loss of connection to user until connection is re-established ]
 - **Relevant files:**
     -
 
@@ -111,14 +85,14 @@ Overview
 
 ### Cognito groups
 
-- **How are groups used to set permissions?:** [eg. 'admin' users can delete and ban other users]
+- **How are groups used to set permissions?:** Admin can delete pictures and have access to all pictures. 
 - **Video timestamp:**
 - **Relevant files:**
     -
 
 ### Core - DNS with Route53
 
-- **Subdomain**:  [eg. myawesomeapp.cab432.com]
+- **Subdomain**:  editly.cab432.com
 - **Video timestamp:**
 
 ### Parameter store
@@ -143,16 +117,5 @@ Overview
 - **Relevant files:**
     -
 
-### Other (with prior approval only)
 
-- **Description:**
-- **Video timestamp:**
-- **Relevant files:**
-    -
 
-### Other (with prior permission only)
-
-- **Description:**
-- **Video timestamp:**
-- **Relevant files:**
-    -
