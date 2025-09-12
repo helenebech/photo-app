@@ -13,7 +13,7 @@
   async function fetchJSON(url, opts = {}) {
     const r = await fetch(url, { 
     ...opts, 
-    credentials: 'include',   // 👈 important: send session cookie
+    //credentials: 'include',   // 👈 important: send session cookie
     headers: { ...(opts.headers || {}) }
   });
 
@@ -92,7 +92,7 @@
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ filename: f.name, contentType }), 
-        credentials: 'include'  // important to include session cookie
+        //credentials: 'include'  // important to include session cookie
       });
 
       // 2. Last opp filen direkte til S3 med PUT (kun Content-Type, ingen auth-headere!)
@@ -114,7 +114,7 @@
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ key, mimeType: contentType, size: f.size, title: f.name }), 
-        credentials: 'include'  // important to include session cookie
+        //credentials: 'include'  // important to include session cookie
       });
 
       // 4. Start prosessering (f.eks. grayscale)

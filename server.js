@@ -24,9 +24,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(morgan('dev'));
-app.use(cors({
-  credentials: true
-}));
+app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
 const __filename = fileURLToPath(import.meta.url);
@@ -59,12 +57,12 @@ initializeClient().catch(console.error);
 app.use(session({
     secret: 'some secret',
     resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: false, // set true if you’re behind HTTPS
-      sameSite: 'lax' // 👈 allows sending cookies on same-site navigations + GET fetch
-    }
+    saveUninitialized: false
+    // cookie: {
+    //   httpOnly: true,
+    //   secure: false, // set true if you’re behind HTTPS
+    //   sameSite: 'lax' // 👈 allows sending cookies on same-site navigations + GET fetch
+    // }
 }));
 
 function setUserSession(req, idToken) {
@@ -98,18 +96,21 @@ function checkAuth(req, res, next) {
 }
 
 // pages
-app.get('/', (_req, res) => {
+app.get('/', checkAuth, (_req, res) => {
   console.log(_req.isAuthenticated)
-  if (_req.session.user && _req.session.user.id_token) {
-    console.log("is auth so going to app.html");
-    res.render('/app', {
-      isAuthenticated: _req.isAuthenticated,
-      userInfo: _req.session.userInfo
-    });
-  } else {
-    console.log("is not auth so in get(/) to login page")
-    res.sendFile(path.join(__dirname, 'public', 'login.html')); 
-  }
+  res.render('/app', { isAuthenticated: _req.isAuthenticated,
+    userInfo: _req.session.userInfo
+  });
+  // if (_req.session.user && _req.session.user.id_token) {
+  //   console.log("is auth so going to app.html");
+  //   res.render('/app', {
+  //     isAuthenticated: _req.isAuthenticated,
+  //     userInfo: _req.session.userInfo
+  //   });
+  // } else {
+  //   console.log("is not auth so in get(/) to login page")
+  //   res.sendFile(path.join(__dirname, 'public', 'login.html')); 
+  // }
 });
 
 app.get('/app', (_req, res) => {
