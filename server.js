@@ -129,7 +129,7 @@ app.get('/callback', async (req, res) => {
     });
     
     const id_token = tokenSet.id_token; 
-    const id_token = tokenSet.id_token; 
+
     setUserSession(req, id_token);
 
     console.log('req.session.user after callback:', req.session.user);
