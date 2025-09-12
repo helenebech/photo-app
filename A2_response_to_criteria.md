@@ -13,11 +13,11 @@ Instructions
 Overview
 ------------------------------------------------
 
-- **Name:** Marie Haug Laukeland and Helene Bech Andersen
-- **Student number:** n12541184 and n12542407
-- **Partner name (if applicable):** YourPartner NameHere
+- **Name:** Marie Haug Laukeland 
+- **Student number:** n12541184 
+- **Partner name (if applicable):** Helene Bech Andersen (n12542407)
 - **Application name:** Editly
-- **Two line description:** We have implemented: 
+- **Two line description:** We have implemented: A photo-application where you can upload, comment and edit photos. In this assignment we have implementes cloud-based storage of picture-file and metadata for comments and pictures, using AWS S3-buckets and MongoDB. We have improved the login with two-factor-authentication and different user groups, using AWS Cognito. 
 - **EC2 instance name or ID:** n12542407-photo-app
 
 ------------------------------------------------
@@ -26,28 +26,31 @@ Overview
 
 - **AWS service name:**  S3
 - **What data is being stored?:** Picture-files
-- **Why is this service suited to this data?:** Large files are best suited to blob storage due to size restrictions 
-- **Why is are the other services used not suitable for this data?:**
-- **Bucket/instance/table name:**n12542407-photo-app
-- **Video timestamp:**
+- **Why is this service suited to this data?:** S3 allows users to save different versions of pictures (original/medium/edit). You store them with a unique key and that makes it easy to access and manage. 
+- **Why is are the other services used not suitable for this data?:** Its dynamic and you don´t have to worry if you run out of space, and its client focused because you can send them a link they can easily access on their own device.
+- **Bucket/instance/table name:** n12542407-photo-app
+- **Video timestamp:** 00:17
 - **Relevant files:**
-    -
+    -config/s3.js
+    -routes/images.js
+    -routes/s3.js
+    -server.js
 
 ### Core - Second data persistence service
 
 - **AWS service name:**  MongoDB
 - **What data is being stored?:** Metadata for pictures and comments
-- **Why is this service suited to this data?:**
-- **Why is are the other services used not suitable for this data?:**
-- **Bucket/instance/table name:**
-- **Video timestamp:**
+- **Why is this service suited to this data?:** Its a visual and easy way to store data for programmers. 
+- **Why is are the other services used not suitable for this data?:** NoSQL is better if you want scalability, flexibility and performance for specific workloads. 
+- **Bucket/instance/table name:** Project0 on MongoDB
+- **Video timestamp:** 0:55
 - **Relevant files:**
     -
 
 ### S3 Pre-signed URLs
 
 - **S3 Bucket names:** n12542407-photo-app
-- **Video timestamp:**
+- **Video timestamp:** 2:00
 - **Relevant files:**
     -config/s3.js
     -routes/images.js
@@ -60,62 +63,36 @@ Overview
 - **Relevant files:**
     -
 
-
 ### Core - Authentication with Cognito
 
-- **User pool name:**
-- **How are authentication tokens handled by the client?:** [eg. Response to login request sets a cookie containing the token.]
-- **Video timestamp:**
+- **User pool name:** User pool - wo7klr
+- **How are authentication tokens handled by the client?:** Response to login request sets a cookie in the session containing the token. 
+- **Video timestamp:** 2:34
 - **Relevant files:**
-    -
+    -server.js
+    -app.js
 
 ### Cognito multi-factor authentication
 
-- **What factors are used for authentication:** [eg. password, SMS code]
-- **Video timestamp:**
-- **Relevant files:**
-    -
-
-### Cognito federated identities
-
-- **Identity providers used:**
-- **Video timestamp:**
+- **What factors are used for authentication:** Password and email code. 
+- **Video timestamp:** 2:45 
 - **Relevant files:**
     -
 
 ### Cognito groups
 
-- **How are groups used to set permissions?:** Admin can delete pictures and have access to all pictures. 
-- **Video timestamp:**
+- **How are groups used to set permissions?:** 'Admin' can delete images and see all images uploaded by all users. 'User' can only see their own images, and cannot delete them. 
+- **Video timestamp:** 3:05
 - **Relevant files:**
-    -
+    -app.js
+    -server.js
+    -images.js
 
 ### Core - DNS with Route53
 
 - **Subdomain**:  editly.cab432.com
-- **Video timestamp:**
+- **Video timestamp:** 5:35
 
-### Parameter store
-
-- **Parameter names:** [eg. n1234567/base_url]
-- **Video timestamp:**
-- **Relevant files:**
-    -
-
-### Secrets manager
-
-- **Secrets names:** [eg. n1234567-youtube-api-key]
-- **Video timestamp:**
-- **Relevant files:**
-    -
-
-### Infrastructure as code
-
-- **Technology used:**
-- **Services deployed:**
-- **Video timestamp:**
-- **Relevant files:**
-    -
 
 
 
