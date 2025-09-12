@@ -31,10 +31,10 @@ Overview
 - **Bucket/instance/table name:** n12542407-photo-app
 - **Video timestamp:** 00:17
 - **Relevant files:**
-    -config/s3.js
-    -routes/images.js
-    -routes/s3.js
-    -server.js
+    - config/s3.js
+    - routes/images.js
+    - routes/s3.js
+    - server.js
 
 ### Core - Second data persistence service
 
@@ -45,15 +45,16 @@ Overview
 - **Bucket/instance/table name:** Project0 on MongoDB
 - **Video timestamp:** 0:55
 - **Relevant files:**
-    -
+    - server.js
+
 
 ### S3 Pre-signed URLs
 
 - **S3 Bucket names:** n12542407-photo-app
 - **Video timestamp:** 2:00
 - **Relevant files:**
-    -config/s3.js
-    -routes/images.js
+    - config/s3.js
+    - routes/images.js
 
 ### Core - Statelessness 
 
@@ -69,28 +70,28 @@ Overview
 - **How are authentication tokens handled by the client?:** Response to login request sets a cookie in the session containing the token. 
 - **Video timestamp:** 2:34
 - **Relevant files:**
-    -server.js
-    -app.js
+    - server.js
+    - app.js
 
 ### Cognito multi-factor authentication
 
 - **What factors are used for authentication:** Password and email code. 
 - **Video timestamp:** 2:45 
 - **Relevant files:**
-    -routes/images.js
-    -routes/s3.js
-    -routes/comments.js
-    -processing/processor.js
-    -processing/queue.js
+    - routes/images.js
+    - routes/s3.js
+    - routes/comments.js
+    - processing/processor.js
+    - processing/queue.js
 
 ### Cognito groups
 
 - **How are groups used to set permissions?:** 'Admin' can delete images and see all images uploaded by all users. 'User' can only see their own images, and cannot delete them. 
 - **Video timestamp:** 3:05
 - **Relevant files:**
-    -app.js
-    -server.js
-    -images.js
+    - app.js
+    - server.js
+    - images.js
 
 ### Core - DNS with Route53
 
