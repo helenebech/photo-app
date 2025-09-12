@@ -55,11 +55,11 @@ Overview
     -config/s3.js
     -routes/images.js
 
-### Core - Statelessness
+### Core - Statelessness 
 
-- **What data is stored within your application that is not stored in cloud data services?:** [eg. intermediate video files that have been transcoded but not stabilised]
-- **Why is this data not considered persistent state?:** [eg. intermediate files can be recreated from source if they are lost]
-- **How does your application ensure data consistency if the app suddenly stops?:** [eg. journal used to record data transactions before they are done.  A separate task scans the journal and corrects problems on startup and once every 5 minutes afterwards. ]
+- **What data is stored within your application that is not stored in cloud data services?:** We have queues for uplaoding pictures that are stored locally and short-lived access tokens. 
+- **Why is this data not considered persistent state?:** Loss does not affect the performancy of the application. 
+- **How does your application ensure data consistency if the app suddenly stops?:** The application is effectively stateless, since the state of the application is stored in cloud storages such as MongoDB and S3. Losing queues for example would only impact performance and not the functionality of the application. 
 - **Relevant files:**
     -
 
@@ -77,7 +77,11 @@ Overview
 - **What factors are used for authentication:** Password and email code. 
 - **Video timestamp:** 2:45 
 - **Relevant files:**
-    -
+    -routes/images.js
+    -routes/s3.js
+    -routes/comments.js
+    -processing/processor.js
+    -processing/queue.js
 
 ### Cognito groups
 
