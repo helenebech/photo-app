@@ -20,9 +20,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(morgan('dev'));
-app.use(cors({
-  credentials: true
-}));
+app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
 const __filename = fileURLToPath(import.meta.url);
@@ -54,11 +52,6 @@ app.use(session({
     secret: 'some secret',
     resave: false,
     saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: false, //should this be true og false, we have trouble with http and https
-      sameSite: 'lax' 
-    }
 }));
 
 function setUserSession(req, idToken) {
@@ -77,6 +70,7 @@ function setUserSession(req, idToken) {
   }
 }
 
+// authentication check from cognito setup
 function checkAuth(req, res, next) {
   console.log("Session content:", req.session.user);
   if (req.session.user && req.session.user.id_token) {
@@ -88,18 +82,13 @@ function checkAuth(req, res, next) {
   res.redirect('/login');
 }
 
-app.get('/', (_req, res) => {
+// pages
+app.get('/', checkAuth, (_req, res) => {
   console.log(_req.isAuthenticated)
-  if (_req.session.user && _req.session.user.id_token) {
-    console.log("is auth so going to app.html");
-    res.render('/app', {
-      isAuthenticated: _req.isAuthenticated,
-      userInfo: _req.session.userInfo
-    });
-  } else {
-    console.log("is not auth so in get(/) to login page")
-    res.sendFile(path.join(__dirname, 'public', 'login.html')); 
-  }
+  res.render('/app', {
+    isAuthenticated: _req.isAuthenticated,
+    userInfo: _req.session.userInfo
+  })
 });
 
 app.get('/app', (_req, res) => {
@@ -124,12 +113,7 @@ app.get('/login',  (req, res) => {
 });
 
 app.get('/logout', (req, res) => {
-    // Destroy local session
     req.session.destroy();
-
-    //const clientId = process.env.COGNITO_CLIENT_ID; 
-   // const logoutUri = process.env.COGNITO_LOGOUT_URI; 
-
     const logoutUrl = `https://ap-southeast-2m0pv1l4lb.auth.ap-southeast-2.amazoncognito.com/logout?client_id=${CLIENT_ID}&logout_uri=${encodeURIComponent(LOGOUT_URI)}`;
     res.redirect(logoutUrl);
 });
@@ -144,6 +128,7 @@ app.get('/callback', async (req, res) => {
       nonce: req.session.nonce,
     });
     
+    const id_token = tokenSet.id_token; 
     const id_token = tokenSet.id_token; 
     setUserSession(req, id_token);
 
