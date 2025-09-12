@@ -1,6 +1,3 @@
-// routes/comments.js
-// This page defines API for creating comments
-
 import express from 'express';
 import Comment from '../models/Comment.js';
 import Image from '../models/Image.js';
@@ -11,18 +8,15 @@ const router = express.Router();
 router.post('/', async (req, res) => {
   const { imageId, text } = req.body || {};
   if (!imageId || !text) return res.status(400).json({ error: 'imageId and text required' });
-
   const image = await Image.findById(imageId);
   if (!image) {
     return res.status(404).json({ error: 'Image not found' });
   }
-
   const comment = await Comment.create({
     imageId,
     authorId: req.user.sub,
     text
   });
-
   res.status(201).json(comment);
 });
 
@@ -33,7 +27,6 @@ router.get('/', async (req, res) => {
   const comments = await Comment.find(filter)
     .sort('-createdAt')
     .limit(100);
-
   res.json({ items: comments });
 });
 

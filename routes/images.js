@@ -1,6 +1,3 @@
-// routes/images.js
-// This page defines API for uploading, processing, listing, retrieving, and (for admins) deleting images
-
 import express from 'express';
 import multer from 'multer';
 import sharp from 'sharp';
@@ -48,7 +45,7 @@ async function streamToBuffer(stream) {
   return Buffer.concat(chunks);
 }
 
-// POST picture (multipart opplasting direkte til backend → S3)
+//POST picture
 router.post('/', upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Missing file' });
 
@@ -85,7 +82,7 @@ router.post('/', upload.single('image'), async (req, res) => {
   }
 });
 
-// POST image (registrer fra S3-key etter presigned upload)
+//POST image (pre-signed URL)
 router.post('/from-key', async (req, res) => {
   console.log('req.session:', req.session);
   console.log('req.session.user.sub:', req.session.user.sub);
@@ -109,7 +106,7 @@ router.post('/from-key', async (req, res) => {
   }
 });
 
-// POST edited image (grayscale)
+//POST edited image 
 router.post('/:id/process', async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
@@ -156,7 +153,7 @@ router.post('/:id/process', async (req, res) => {
   }
 });
 
-// GET all pictures
+//GET all pictures
 router.get('/', async (req, res) => {
   const { page = 1, limit = 50, sort = '-createdAt', tag, all } = req.query;
 
@@ -185,7 +182,7 @@ router.get('/', async (req, res) => {
   res.json({ items: out, page: p, limit: l, total, isAdmin: isAdmin(req) });
 });
 
-// GET one picture
+//GET one picture
 router.get('/:id', async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
@@ -201,7 +198,7 @@ router.get('/:id', async (req, res) => {
   res.json(o);
 });
 
-// DELETE picture (admin only)
+//DELETE picture (admin only)
 router.delete('/:id', async (req, res) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'Admin only' });
 

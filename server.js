@@ -1,6 +1,3 @@
-// server.js
-// This code sets up an Express server with MongoDB
-
 import dotenv from 'dotenv';
 import express from 'express';
 import session from 'express-session';
@@ -10,7 +7,6 @@ import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {Issuer, generators} from 'openid-client';
-import {createRemoteJWKSet, jwtVerify} from 'jose'; 
 import jwt from 'jsonwebtoken';
 
 import authRoutes from './routes/auth.js';
@@ -32,11 +28,9 @@ app.use(express.json({ limit: '2mb' }));
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// static files
 app.use('/', express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Cognito
 const COGNITO_DOMAIN = process.env.COGNITO_DOMAIN; 
 const CLIENT_ID = process.env.COGNITO_CLIENT_ID; 
 const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET; 
@@ -62,14 +56,13 @@ app.use(session({
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: false, // set true if you’re behind HTTPS
-      sameSite: 'lax' // 👈 allows sending cookies on same-site navigations + GET fetch
+      secure: false, //should this be true og false, we have trouble with http and https
+      sameSite: 'lax' 
     }
 }));
 
 function setUserSession(req, idToken) {
   try {
-    // Decode without verifying signature if you trust Cognito for now
     const payload = jwt.decode(idToken);
 
     req.session.user = {
@@ -84,8 +77,6 @@ function setUserSession(req, idToken) {
   }
 }
 
-
-// authentication check (Cognito)
 function checkAuth(req, res, next) {
   console.log("Session content:", req.session.user);
   if (req.session.user && req.session.user.id_token) {
@@ -97,7 +88,6 @@ function checkAuth(req, res, next) {
   res.redirect('/login');
 }
 
-// pages
 app.get('/', (_req, res) => {
   console.log(_req.isAuthenticated)
   if (_req.session.user && _req.session.user.id_token) {
@@ -133,7 +123,6 @@ app.get('/login',  (req, res) => {
     res.redirect(authUrl);
 });
 
-// Logout route
 app.get('/logout', (req, res) => {
     // Destroy local session
     req.session.destroy();
@@ -155,7 +144,7 @@ app.get('/callback', async (req, res) => {
       nonce: req.session.nonce,
     });
     
-    const id_token = tokenSet.id_token; // or from Cognito SDK callback
+    const id_token = tokenSet.id_token; 
     setUserSession(req, id_token);
 
     console.log('req.session.user after callback:', req.session.user);
@@ -174,17 +163,15 @@ app.get('/api/v1/me', (req, res) => {
   res.json(req.session.user);
 });
 
-// API routes
 app.use('/api/v1/auth', authRoutes);
 
-// VIKTIG: beskytt med Cognito-auth før routers:
 app.use('/api/v1/images', checkAuth, imageRoutes);
 app.use('/api/v1/comments', checkAuth, commentRoutes);
 app.use('/api/v1/s3', checkAuth, s3Routes);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-// Connect to MongoDB and start server
+//Connect to MongoDB and start server
 (async () => {
   try {
     if (!process.env.MONGO_URL) throw new Error('Missing MONGO_URL');

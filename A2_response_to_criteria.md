@@ -13,30 +13,30 @@ Instructions
 Overview
 ------------------------------------------------
 
-- **Name:** YourName GoesHere
-- **Student number:** n100200300
+- **Name:** Marie Haug Laukeland and Helene Bech Andersen
+- **Student number:** n12541184 and n12542407
 - **Partner name (if applicable):** YourPartner NameHere
-- **Application name:** FooBarBaz
-- **Two line description:** I/We implemented this very cool app that does Foo, Bar and Baz.
-- **EC2 instance name or ID:**
+- **Application name:** Editly
+- **Two line description:** We have implemented: 
+- **EC2 instance name or ID:** n12542407-photo-app
 
 ------------------------------------------------
 
 ### Core - First data persistence service
 
-- **AWS service name:**  [eg. S3]
-- **What data is being stored?:** [eg video files]
-- **Why is this service suited to this data?:** [eg. large files are best suited to blob storage due to size restrictions on other services]
+- **AWS service name:**  S3
+- **What data is being stored?:** Picture-files
+- **Why is this service suited to this data?:** Large files are best suited to blob storage due to size restrictions 
 - **Why is are the other services used not suitable for this data?:**
-- **Bucket/instance/table name:**
+- **Bucket/instance/table name:**n12542407-photo-app
 - **Video timestamp:**
 - **Relevant files:**
     -
 
 ### Core - Second data persistence service
 
-- **AWS service name:**  [eg. DynamoDB]
-- **What data is being stored?:** 
+- **AWS service name:**  MongoDB
+- **What data is being stored?:** Metadata for pictures and comments
 - **Why is this service suited to this data?:**
 - **Why is are the other services used not suitable for this data?:**
 - **Bucket/instance/table name:**
@@ -57,7 +57,7 @@ Overview
 
 ### S3 Pre-signed URLs
 
-- **S3 Bucket names:**
+- **S3 Bucket names:**n12542407-photo-app
 - **Video timestamp:**
 - **Relevant files:**
     -

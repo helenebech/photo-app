@@ -1,8 +1,4 @@
-//This page creates a login endpoint with express
-
 import express from 'express';
-import jwt from 'jsonwebtoken';
-//import users from '../config/users.json' with { type: 'json' };
 import { CognitoIdentityProviderClient, InitiateAuthCommand } from "@aws-sdk/client-cognito-identity-provider";
 import Cognito from "@aws-sdk/client-cognito-identity-provider";
 
@@ -16,7 +12,7 @@ router.post('/login', async(req, res) => {
     try {
     const command = new InitiateAuthCommand({
       AuthFlow: "USER_PASSWORD_AUTH",
-      ClientId: process.env.COGNITO_APP_CLIENT_ID,
+      ClientId: process.env.COGNITO_CLIENT_ID,
       AuthParameters: {
         USERNAME: username,
         PASSWORD: password

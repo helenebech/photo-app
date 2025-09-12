@@ -1,6 +1,3 @@
-// routes/s3.js
-// Håndterer opplasting og visning av bilder via S3 med presigned URLs
-
 import express from "express";
 import crypto from "crypto";
 import sharp from "sharp";
@@ -13,7 +10,7 @@ const router = express.Router();
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const upload = multer({ storage: multer.memoryStorage() });
 
-// --- PRESIGNED PUT (for opplasting) ---
+//POST (pre-signed)
 router.post("/upload-url", async (req, res) => {
   try {
     const { filename, contentType } = req.body || {};
@@ -42,7 +39,7 @@ router.post("/upload-url", async (req, res) => {
   }
 });
 
-// --- Direkte opplasting (fallback) ---
+//If pre-signed fails
 router.post("/upload-direct", upload.single("image"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "Missing file" });
@@ -73,7 +70,7 @@ router.post("/upload-direct", upload.single("image"), async (req, res) => {
   }
 });
 
-// --- PRESIGNED GET (for visning) ---
+//GET (pre-signed)
 router.get("/view-url", async (req, res) => {
   try {
     const { key } = req.query;
