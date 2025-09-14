@@ -52,6 +52,7 @@ app.use(session({
     secret: 'some secret',
     resave: false,
     saveUninitialized: false,
+    cookie: { secure: true } ,
 }));
 
 function setUserSession(req, idToken) {
