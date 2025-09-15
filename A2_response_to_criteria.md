@@ -47,6 +47,15 @@ Overview
 - **Relevant files:**
     - server.js
 
+### Third data service
+
+- **AWS service name:**  [eg. RDS]
+- **What data is being stored?:** [eg video metadata]
+- **Why is this service suited to this data?:** [eg. ]
+- **Why is are the other services used not suitable for this data?:** [eg. Advanced video search requires complex querries which are not available on S3 and inefficient on DynamoDB]
+- **Bucket/instance/table name:**
+- **Video timestamp:**
+- **Relevant files:**
 
 ### S3 Pre-signed URLs
 
@@ -56,6 +65,14 @@ Overview
     - config/s3.js
     - routes/images.js
 
+### In-memory cache
+
+- **ElastiCache instance name:**
+- **What data is being cached?:** [eg. Thumbnails from YouTube videos obatined from external API]
+- **Why is this data likely to be accessed frequently?:** [ eg. Thumbnails from popular YouTube videos are likely to be shown to multiple users ]
+- **Video timestamp:**
+- **Relevant files:**
+
 ### Core - Statelessness 
 
 - **What data is stored within your application that is not stored in cloud data services?:** We have queues for uplaoding pictures that are stored locally and short-lived access tokens. 
@@ -63,6 +80,12 @@ Overview
 - **How does your application ensure data consistency if the app suddenly stops?:** The application is effectively stateless, since the state of the application is stored in cloud storages such as MongoDB and S3. Losing queues for example would only impact performance and not the functionality of the application. 
 - **Relevant files:**
     -
+
+### Graceful handling of persistent connections
+
+- **Type of persistent connection and use:** [eg. server-side-events for progress reporting]
+- **Method for handling lost connections:** [eg. client responds to lost connection by reconnecting and indicating loss of connection to user until connection is re-established ]
+- **Relevant files:**
 
 ### Core - Authentication with Cognito
 
@@ -84,6 +107,13 @@ Overview
     - processing/processor.js
     - processing/queue.js
 
+### Cognito federated identities
+
+- **Identity providers used:**
+- **Video timestamp:**
+- **Relevant files:**
+    -
+
 ### Cognito groups
 
 - **How are groups used to set permissions?:** 'Admin' can delete images and see all images uploaded by all users. 'User' can only see their own images, and cannot delete them. 
@@ -98,6 +128,40 @@ Overview
 - **Subdomain**:  editly.cab432.com
 - **Video timestamp:** 5:35
 
+### Parameter store
 
+- **Parameter names:** [eg. n1234567/base_url]
+- **Video timestamp:**
+- **Relevant files:**
+    -
+
+### Secrets manager
+
+- **Secrets names:** [eg. n1234567-youtube-api-key]
+- **Video timestamp:**
+- **Relevant files:**
+    -
+
+### Infrastructure as code
+
+- **Technology used:**
+- **Services deployed:**
+- **Video timestamp:**
+- **Relevant files:**
+    -
+
+### Other (with prior approval only)
+
+- **Description:**
+- **Video timestamp:**
+- **Relevant files:**
+    -
+
+### Other (with prior permission only)
+
+- **Description:**
+- **Video timestamp:**
+- **Relevant files:**
+    -
 
 
