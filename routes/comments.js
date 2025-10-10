@@ -1,12 +1,28 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import Comment from '../models/Comment.js';
 import Image from '../models/Image.js';
 
 const router = express.Router();
 
+//verifying 
+function auth(req, res, next) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token) {
+    return res.status(401).json({ error: 'No token' });
+  }
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+}
+
 // POST - make comment for a picture
-router.post('/', async (req, res) => {
-  const { imageId, text } = req.body || {};
+router.post('/', auth, async (req, res) => {
+  const { imageId, text } = req.body;
   if (!imageId || !text) return res.status(400).json({ error: 'imageId and text required' });
   const image = await Image.findById(imageId);
   if (!image) {
@@ -21,7 +37,7 @@ router.post('/', async (req, res) => {
 });
 
 // GET - fetch comments on imageId
-router.get('/', async (req, res) => {
+router.get('/', auth,  async (req, res) => {
   const { imageId } = req.query;
   const filter = imageId ? { imageId } : {};
   const comments = await Comment.find(filter)

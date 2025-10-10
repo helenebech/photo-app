@@ -1,4 +1,4 @@
-<!doctype html>
+<!-- <!doctype html>
 <html lang="en">
   <head>
     <head>
@@ -21,25 +21,30 @@
 
     <script src="./login.js"></script>
   </body>
-</html>
+</html> -->
 
-<!-- <!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
+    <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Log in</title>
-    <script rel="stylesheet" type="module" defer></script>
+    <link rel="stylesheet" href="login.css" />
+  </head>
   </head>
   <body>
-    <div>
-      <h1>Log in to Editly</h1>
-      <div id="auth-section">
-        <p>Please log in to continue</p>
-        <a id="loginLink" href="#">Login</a>
-      </div>
+    <div id="wrapper">
+      <h1 id="header">Log in to Editly</h1>
+      <section>
+          <label>Username <input id="u" ></label>
+          <label>Password <input id="p" type="password"></label>
+          <button id="loginBtn">Log in</button>
+          <div id="msg"></div>
+      </section>
     </div>
-    <script src="login.js"></script>
+
+    <script src="./login.js"></script>
   </body>
-</html> -->
+</html>
 

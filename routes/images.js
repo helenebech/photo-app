@@ -1,5 +1,9 @@
 import express from 'express';
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import jwt from 'jsonwebtoken';
+import { fileURLToPath } from 'url';  
 import sharp from 'sharp';
 import crypto from 'crypto';
 import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
@@ -9,7 +13,19 @@ import { s3, BUCKET } from '../config/s3.js';
 
 const router = express.Router();
 
-const isAdmin = (req) => req.session.user?.role === 'admin'; // evt. utvid med Cognito groups ved behov
+function auth(req, res, next) {
+  const h = req.headers.authorization || '';
+  const token = h.startsWith('Bearer ') ? h.slice(7) : null;
+  if (!token) return res.status(401).json({ error: 'Missing token' });
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+}
+
+const isAdmin = (req) => req.session.user?.role === 'admin'; 
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -46,7 +62,7 @@ async function streamToBuffer(stream) {
 }
 
 //POST picture
-router.post('/', upload.single('image'), async (req, res) => {
+router.post('/', auth, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Missing file' });
 
   const safeName = req.file.originalname.normalize('NFC').replace(/[^\w.\-]+/g, '_');
@@ -83,7 +99,7 @@ router.post('/', upload.single('image'), async (req, res) => {
 });
 
 //POST image (pre-signed URL)
-router.post('/from-key', async (req, res) => {
+router.post('/from-key', auth, async (req, res) => {
   console.log('req.session:', req.session);
   console.log('req.session.user.sub:', req.session.user.sub);
   try {
@@ -107,7 +123,7 @@ router.post('/from-key', async (req, res) => {
 });
 
 //POST edited image 
-router.post('/:id/process', async (req, res) => {
+router.post('/:id/process', auth, async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
 
@@ -154,7 +170,7 @@ router.post('/:id/process', async (req, res) => {
 });
 
 //GET all pictures
-router.get('/', async (req, res) => {
+router.get('/', auth, async (req, res) => {
   const { page = 1, limit = 50, sort = '-createdAt', tag, all } = req.query;
 
   const query = (isAdmin(req) && all === '1') ? {} : { ownerId: req.session.user.sub };
@@ -183,7 +199,7 @@ router.get('/', async (req, res) => {
 });
 
 //GET one picture
-router.get('/:id', async (req, res) => {
+router.get('/:id', auth, async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
   if (!isAdmin(req) && img.ownerId !== req.session.user.sub) {
@@ -199,7 +215,7 @@ router.get('/:id', async (req, res) => {
 });
 
 //DELETE picture (admin only)
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'Admin only' });
 
   const img = await Image.findById(req.params.id);

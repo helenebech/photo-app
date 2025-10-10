@@ -5,22 +5,15 @@
 
   const qs = (id) => document.getElementById(id);
   const state = { token: null, isAdmin: false };
-  const redirectToLogin = () => { 
-    location.replace('/logout'); };
+  const redirectToLogin = () => { localStorage.removeItem('token'); location.replace('/login.html'); };
 
-  const authHeaders = (extra = {}) => ({ ...extra });
+  const authHeaders = (extra = {}) =>
+    state.token ? { Authorization: 'Bearer ' + state.token, ...extra } : { ...extra };
 
   async function fetchJSON(url, opts = {}) {
-    const r = await fetch(url, { 
-    ...opts, 
-    credentials: 'include',   
-    headers: { ...(opts.headers || {}) }
-  });
-
+    const r = await fetch(url, { ...opts, headers: { ...(opts.headers || {}), ...authHeaders() } });
     if (r.status === 401) { 
-      console.log("Error in the fetchJSON in app.js");
-      redirectToLogin(); 
-      return Promise.reject(new Error('Unauthorized')); 
+      redirectToLogin(); return Promise.reject(new Error('Unauthorized')); 
     }
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);

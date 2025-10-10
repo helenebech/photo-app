@@ -1,30 +1,46 @@
 import express from 'express';
-import { CognitoIdentityProviderClient, InitiateAuthCommand } from "@aws-sdk/client-cognito-identity-provider";
-import Cognito from "@aws-sdk/client-cognito-identity-provider";
+import jwt from 'jsonwebtoken';
+import users from '../config/users.json' assert { type: 'json' };
+//import { CognitoIdentityProviderClient, InitiateAuthCommand } from "@aws-sdk/client-cognito-identity-provider";
+//import Cognito from "@aws-sdk/client-cognito-identity-provider";
 
 const router = express.Router();
-const client = new Cognito.CognitoIdentityProviderClient({
-    region: "ap-southeast-2",
-  });
+// const client = new Cognito.CognitoIdentityProviderClient({
+//     region: "ap-southeast-2",
+//   });
 
-router.post('/login', async(req, res) => {
+//router.post('/login', async(req, res) => {
+//   const { username, password } = req.body || {};
+//     try {
+//     const command = new InitiateAuthCommand({
+//       AuthFlow: "USER_PASSWORD_AUTH",
+//       ClientId: process.env.COGNITO_CLIENT_ID,
+//       AuthParameters: {
+//         USERNAME: username,
+//         PASSWORD: password
+//       }
+//     });
+
+//     const response = await client.send(command);
+//     res.json({ token: response.AuthenticationResult.IdToken });
+//   } catch (err) {
+//     console.error("Cognito login error:", err);
+//     res.status(401).json({ error: err.message || "Invalid login" });
+//   }
+// });
+
+router.post('/login', (req, res) => {
   const { username, password } = req.body || {};
-    try {
-    const command = new InitiateAuthCommand({
-      AuthFlow: "USER_PASSWORD_AUTH",
-      ClientId: process.env.COGNITO_CLIENT_ID,
-      AuthParameters: {
-        USERNAME: username,
-        PASSWORD: password
-      }
-    });
+  const user = users.find(u => u.username === username && u.password === password);
+  if (!user) return res.status(401).json({ error: 'Invalid username/password' });
 
-    const response = await client.send(command);
-    res.json({ token: response.AuthenticationResult.IdToken });
-  } catch (err) {
-    console.error("Cognito login error:", err);
-    res.status(401).json({ error: err.message || "Invalid login" });
-  }
+  const token = jwt.sign(
+    { sub: user.id, username: user.username, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: '12h' }
+  );
+
+  res.json({ token, role: user.role });
 });
 
 export default router;

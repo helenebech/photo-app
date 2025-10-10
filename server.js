@@ -12,12 +12,12 @@ import authRoutes from './routes/auth.js';
 import imageRoutes from './routes/images.js';
 import commentRoutes from './routes/comments.js';
 //import { CognitoIdentityProvider } from '@aws-sdk/client-cognito-identity-provider';
-import {
-  CognitoIdentityProviderClient,
-  SignUpCommand,
-  ConfirmSignUpCommand,
-  InitiateAuthCommand
-} from "@aws-sdk/client-cognito-identity-provider";
+// import {
+//   CognitoIdentityProviderClient,
+//   SignUpCommand,
+//   ConfirmSignUpCommand,
+//   InitiateAuthCommand
+// } from "@aws-sdk/client-cognito-identity-provider";
 
 dotenv.config();
 
@@ -28,37 +28,37 @@ app.use(morgan('dev'));
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
-const client = new CognitoIdentityProviderClient({ region: 'ap-southeast-2' });
+//const client = new CognitoIdentityProviderClient({ region: 'ap-southeast-2' });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 //authentication check
-function checkAuth (req, res, next) {
-    if (!req.session.userInfo) {
-        req.isAuthenticated = false;
-    } else {
-        req.isAuthenticated = true;
-    }
-    next();
-};
+// function checkAuth (req, res, next) {
+//     if (!req.session.userInfo) {
+//         req.isAuthenticated = false;
+//     } else {
+//         req.isAuthenticated = true;
+//     }
+//     next();
+// };
 
 //static files
 app.use('/', express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-async function checkAuth(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ error: "Missing token" });
+// async function checkAuth(req, res, next) {
+//   const authHeader = req.headers.authorization;
+//   if (!authHeader) return res.status(401).json({ error: "Missing token" });
 
-  const token = authHeader.split(" ")[1];
-  try {
-    req.user = await verifier.verify(token);
-    next();
-  } catch (err) {
-    res.status(401).json({ error: "Invalid token" });
-  }
-}
+//   const token = authHeader.split(" ")[1];
+//   try {
+//     req.user = await verifier.verify(token);
+//     next();
+//   } catch (err) {
+//     res.status(401).json({ error: "Invalid token" });
+//   }
+// }
 
 //pages
 app.get('/', (_req, res) => {
@@ -69,62 +69,62 @@ app.get('/app', checkAuth, (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
 });
 
-app.post("/signup", async (req, res) => {
-  const { username, password, email } = req.body;
+// app.post("/signup", async (req, res) => {
+//   const { username, password, email } = req.body;
 
-  try {
-    const command = new SignUpCommand({
-      ClientId: process.env.COGNITO_CLIENT_ID,
-      Username: username,
-      Password: password,
-      UserAttributes: [{ Name: "email", Value: email }]
-    });
+//   try {
+//     const command = new SignUpCommand({
+//       ClientId: process.env.COGNITO_CLIENT_ID,
+//       Username: username,
+//       Password: password,
+//       UserAttributes: [{ Name: "email", Value: email }]
+//     });
 
-    const response = await client.send(command);
-    res.json(response);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
+//     const response = await client.send(command);
+//     res.json(response);
+//   } catch (err) {
+//     res.status(400).json({ error: err.message });
+//   }
+// });
 
 // Confirm signup
-app.post("/confirm", async (req, res) => {
-  const { username, code } = req.body;
+// app.post("/confirm", async (req, res) => {
+//   const { username, code } = req.body;
 
-  try {
-    const command = new ConfirmSignUpCommand({
-      ClientId: process.env.COGNITO_CLIENT_ID,
-      Username: username,
-      ConfirmationCode: code
-    });
+//   try {
+//     const command = new ConfirmSignUpCommand({
+//       ClientId: process.env.COGNITO_CLIENT_ID,
+//       Username: username,
+//       ConfirmationCode: code
+//     });
 
-    const response = await client.send(command);
-    res.json(response);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
+//     const response = await client.send(command);
+//     res.json(response);
+//   } catch (err) {
+//     res.status(400).json({ error: err.message });
+//   }
+// });
 
 // Authenticate (login)
-app.post("/login", async (req, res) => {
-  const { username, password } = req.body;
+// app.post("/login", async (req, res) => {
+//   const { username, password } = req.body;
 
-  try {
-    const command = new InitiateAuthCommand({
-      AuthFlow: "USER_PASSWORD_AUTH",
-      ClientId: process.env.COGNITO_CLIENT_ID,
-      AuthParameters: {
-        USERNAME: username,
-        PASSWORD: password
-      }
-    });
+//   try {
+//     const command = new InitiateAuthCommand({
+//       AuthFlow: "USER_PASSWORD_AUTH",
+//       ClientId: process.env.COGNITO_CLIENT_ID,
+//       AuthParameters: {
+//         USERNAME: username,
+//         PASSWORD: password
+//       }
+//     });
 
-    const response = await client.send(command);
-    res.json(response.AuthenticationResult); // contains IdToken & AccessToken
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
+//     const response = await client.send(command);
+//     res.json(response.AuthenticationResult); // contains IdToken & AccessToken
+//   } catch (err) {
+//     res.status(400).json({ error: err.message });
+//   }
+// });
 
 // app.get('/login', (req, res) => {
 //     const nonce = generators.nonce();
