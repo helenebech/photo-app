@@ -7,10 +7,13 @@
   const state = { token: null, isAdmin: false };
   const redirectToLogin = () => { localStorage.removeItem('token'); location.replace('/login.html'); };
 
-  const authHeaders = (extra = {}) =>
-    state.token ? { Authorization: 'Bearer ' + state.token, ...extra } : { ...extra };
+  const authHeaders = (extra = {}) => {
+    console.log('Sending token:', state.token);
+    return state.token ? { Authorization: 'Bearer ' + state.token, ...extra } : { ...extra };
+  };
 
   async function fetchJSON(url, opts = {}) {
+    console.log('Fetch headers:', authHeaders());
     const r = await fetch(url, { ...opts, headers: { ...(opts.headers || {}), ...authHeaders() } });
     if (r.status === 401) { 
       redirectToLogin(); return Promise.reject(new Error('Unauthorized')); 
@@ -21,7 +24,16 @@
   }
 
   function init() {
+    state.token = localStorage.getItem('token');
+    if (!state.token) { redirectToLogin(); return; }
 
+    try {
+      const payload = JSON.parse(atob(state.token.split('.')[1] || ''));
+      state.isAdmin = payload?.role === 'admin';
+    } 
+    catch { 
+      state.isAdmin = false; 
+    }
     qs('logoutBtn')?.addEventListener('click', () => redirectToLogin());
     qs('uploadBtn')?.addEventListener('click', () => uploadImg(qs('file')));
     qs('refreshBtn')?.addEventListener('click', listImgs);

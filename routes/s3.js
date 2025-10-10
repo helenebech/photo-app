@@ -23,7 +23,7 @@ function auth(req, res, next) {
   }
 }
 
-const isAdmin = (req) => req.session.user?.role === 'admin'; 
+const isAdmin = (req) => req.user?.role === 'admin'; 
 
 //POST (pre-signed)
 router.post("/upload-url", auth, async (req, res) => {

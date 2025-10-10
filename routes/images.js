@@ -25,7 +25,7 @@ function auth(req, res, next) {
   }
 }
 
-const isAdmin = (req) => req.session.user?.role === 'admin'; 
+const isAdmin = (req) => req.user?.role === 'admin'; 
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -79,7 +79,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
     }));
 
     const img = await Image.create({
-      ownerId: req.session.user.sub,
+      ownerId: req.user.sub,
       originalPath: key,
       mimeType: req.file.mimetype,
       size: req.file.size,
@@ -100,14 +100,14 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
 
 //POST image (pre-signed URL)
 router.post('/from-key', auth, async (req, res) => {
-  console.log('req.session:', req.session);
-  console.log('req.session.user.sub:', req.session.user.sub);
+  console.log('req:', req);
+  console.log('req.user.sub:', req.user.sub);
   try {
     const { key, mimeType, size, title } = req.body || {};
     if (!key) return res.status(400).json({ error: 'key required' });
 
     const img = await Image.create({
-      ownerId: req.session.user.sub,
+      ownerId: req.user.sub,
       originalPath: key,
       mimeType: mimeType || 'application/octet-stream',
       size: size || 0,
@@ -127,7 +127,7 @@ router.post('/:id/process', auth, async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
 
-  if (!isAdmin(req) && img.ownerId !== req.session.user.sub) {
+  if (!isAdmin(req) && img.ownerId !== req.user.sub) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
@@ -173,7 +173,7 @@ router.post('/:id/process', auth, async (req, res) => {
 router.get('/', auth, async (req, res) => {
   const { page = 1, limit = 50, sort = '-createdAt', tag, all } = req.query;
 
-  const query = (isAdmin(req) && all === '1') ? {} : { ownerId: req.session.user.sub };
+  const query = (isAdmin(req) && all === '1') ? {} : { ownerId: req.user.sub };
   if (tag) query.tags = tag;
 
   const p = Math.max(parseInt(page, 10) || 1, 1);
@@ -202,7 +202,7 @@ router.get('/', auth, async (req, res) => {
 router.get('/:id', auth, async (req, res) => {
   const img = await Image.findById(req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
-  if (!isAdmin(req) && img.ownerId !== req.session.user.sub) {
+  if (!isAdmin(req) && img.ownerId !== req.user.sub) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   const o = img.toObject();
