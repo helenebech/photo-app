@@ -200,7 +200,10 @@ router.get('/', auth, async (req, res) => {
 
 //GET one picture
 router.get('/:id', auth, async (req, res) => {
+  //const { imageId } = req.query; kan dette funke isteden for det under?
   const img = await Image.findById(req.params.id);
+  console.log('Søker etter bilde med id:', req.params.id);
+  if(!img) console.log('img not found:', req.params.id);
   if (!img) return res.status(404).json({ error: 'Not found' });
   if (!isAdmin(req) && img.ownerId !== req.user.sub) {
     return res.status(403).json({ error: 'Forbidden' });
