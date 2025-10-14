@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import sharp from 'sharp';
 import crypto from 'crypto';
 import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import fetch from 'node-fetch';
 
 import Image from '../models/Image.js';
 import { s3, BUCKET } from '../config/s3.js';
@@ -130,43 +131,61 @@ router.post('/:id/process', auth, async (req, res) => {
   if (!isAdmin(req) && img.ownerId !== req.user.sub) {
     return res.status(403).json({ error: 'Forbidden' });
   }
+   try {
+    const effect = req.body?.effect;
+    console.log('Calling processor for image:', img._id, ' with effect:', effect);
+    const processorRes = await fetch('http://localhost:3001/process', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageId: img._id, effect })
+    });
 
-  const effect = req.body?.effect;
-
-  if (effect !== 'grayscale') {
-    return res.json({ ok: true, skipped: true });
+    console.log('Processor response status:', processorRes.status);
+    if (!processorRes.ok) {
+      console.error('Processor error:', await processorRes.text());
+      return res.status(500).json({ error: 'Processor service error' });
+    }
+    const data = await processorRes.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Could not send job to processor' });
   }
+  // const effect = req.body?.effect;
 
-  try {
-    const obj = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: img.originalPath }));
-    const buf = await streamToBuffer(obj.Body);
+  // if (effect !== 'grayscale') {
+  //   return res.json({ ok: true, skipped: true });
+  // }
 
-    const outBuf = await sharp(buf)
-      .rotate()
-      .grayscale()
-      .jpeg({ quality: 85 })
-      .toBuffer();
+  //try {
+  //   const obj = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: img.originalPath }));
+  //   const buf = await streamToBuffer(obj.Body);
 
-    const editKey = img.originalPath.replace(/(\.[a-z0-9]+)?$/i, '_edit.jpg');
+  //   const outBuf = await sharp(buf)
+  //     .rotate()
+  //     .grayscale()
+  //     .jpeg({ quality: 85 })
+  //     .toBuffer();
 
-    await s3.send(new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: editKey,
-      Body: outBuf,
-      ContentType: 'image/jpeg'
-    }));
+  //   const editKey = img.originalPath.replace(/(\.[a-z0-9]+)?$/i, '_edit.jpg');
 
-    await Image.updateOne(
-      { _id: img._id },
-      { $set: { 'variants.editPath': editKey, status: 'processed' } }
-    );
+  //   await s3.send(new PutObjectCommand({
+  //     Bucket: BUCKET,
+  //     Key: editKey,
+  //     Body: outBuf,
+  //     ContentType: 'image/jpeg'
+  //   }));
 
-    res.json({ ok: true, id: img._id, editKey });
-  } catch (e) {
-    console.error('process grayscale error', e);
-    await Image.updateOne({ _id: img._id }, { $set: { status: 'error' } });
-    res.status(500).json({ error: 'Processing failed' });
-  }
+  //   await Image.updateOne(
+  //     { _id: img._id },
+  //     { $set: { 'variants.editPath': editKey, status: 'processed' } }
+  //   );
+
+  //   res.json({ ok: true, id: img._id, editKey });
+  // } catch (e) {
+  //   console.error('process grayscale error', e);
+  //   await Image.updateOne({ _id: img._id }, { $set: { status: 'error' } });
+  //   res.status(500).json({ error: 'Processing failed' });
+  // }
 });
 
 //GET all pictures
