@@ -134,7 +134,7 @@ router.post('/:id/process', auth, async (req, res) => {
    try {
     const effect = req.body?.effect;
     console.log('Calling processor for image:', img._id, ' with effect:', effect);
-    const processorRes = await fetch('http://localhost:3001/process', {
+    const processorRes = await fetch('http://172.31.5.137:3001/process', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ imageId: img._id, effect })
