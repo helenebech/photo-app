@@ -101,8 +101,8 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
 
 //POST image (pre-signed URL)
 router.post('/from-key', auth, async (req, res) => {
-  console.log('req:', req);
-  console.log('req.user.sub:', req.user.sub);
+  //console.log('req:', req);
+  //console.log('req.user.sub:', req.user.sub);
   try {
     const { key, mimeType, size, title } = req.body || {};
     if (!key) return res.status(400).json({ error: 'key required' });
@@ -150,42 +150,6 @@ router.post('/:id/process', auth, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Could not send job to processor' });
   }
-  // const effect = req.body?.effect;
-
-  // if (effect !== 'grayscale') {
-  //   return res.json({ ok: true, skipped: true });
-  // }
-
-  //try {
-  //   const obj = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: img.originalPath }));
-  //   const buf = await streamToBuffer(obj.Body);
-
-  //   const outBuf = await sharp(buf)
-  //     .rotate()
-  //     .grayscale()
-  //     .jpeg({ quality: 85 })
-  //     .toBuffer();
-
-  //   const editKey = img.originalPath.replace(/(\.[a-z0-9]+)?$/i, '_edit.jpg');
-
-  //   await s3.send(new PutObjectCommand({
-  //     Bucket: BUCKET,
-  //     Key: editKey,
-  //     Body: outBuf,
-  //     ContentType: 'image/jpeg'
-  //   }));
-
-  //   await Image.updateOne(
-  //     { _id: img._id },
-  //     { $set: { 'variants.editPath': editKey, status: 'processed' } }
-  //   );
-
-  //   res.json({ ok: true, id: img._id, editKey });
-  // } catch (e) {
-  //   console.error('process grayscale error', e);
-  //   await Image.updateOne({ _id: img._id }, { $set: { status: 'error' } });
-  //   res.status(500).json({ error: 'Processing failed' });
-  // }
 });
 
 //GET all pictures
@@ -219,7 +183,6 @@ router.get('/', auth, async (req, res) => {
 
 //GET one picture
 router.get('/:id', auth, async (req, res) => {
-  //const { imageId } = req.query; kan dette funke isteden for det under?
   const img = await Image.findById(req.params.id);
   console.log('Søker etter bilde med id:', req.params.id);
   if(!img) console.log('img not found:', req.params.id);
