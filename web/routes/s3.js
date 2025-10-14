@@ -35,8 +35,8 @@ router.post("/upload-url", auth, async (req, res) => {
     }
 
     const datePrefix = new Date().toISOString().slice(0, 10).replace(/-/g, "/");
-    const userPrefix = req.user?.sub ? `${req.user.sub}/` : "";
-    const key = `uploads/${userPrefix}${datePrefix}/${crypto.randomUUID()}-${filename}`;
+    //const userPrefix = req.user?.sub ? `${req.user.sub}/` : "";
+    const key = `uploads/${datePrefix}/${crypto.randomUUID()}-${filename}`;
 
     const cmd = new PutObjectCommand({
       Bucket: BUCKET,
