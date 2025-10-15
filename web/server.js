@@ -55,7 +55,7 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
     console.log('MongoDB connected');
 
     app.listen(PORT, () => {
-      console.log(`Server running at http://localhost:${PORT}`);
+      console.log(`Server running at ${PORT}`);
     });
   } catch (err) {
     console.error('Startup failed:', err?.message || err);
