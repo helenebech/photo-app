@@ -14,6 +14,6 @@ COPY . .
 # Rebuild sharp specifically for the container's architecture
 RUN npm rebuild sharp
 
-EXPOSE 3001
+EXPOSE 3000
 
 CMD ["node", "server.js"]

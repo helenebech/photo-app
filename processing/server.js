@@ -26,7 +26,7 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'processor' });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 (async () => {
   try {
     if (!process.env.MONGO_URL) throw new Error("Missing MONGO_URL");
