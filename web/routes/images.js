@@ -27,7 +27,7 @@ function auth(req, res, next) {
 }
 
 const isAdmin = (req) => req.user?.role === 'admin'; 
-
+const processorUrl = process.env.PROCESSOR_URL;
 const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter: (_req, file, cb) => {
@@ -134,7 +134,7 @@ router.post('/:id/process', auth, async (req, res) => {
    try {
     const effect = req.body?.effect;
     console.log('Calling processor for image:', img._id, ' with effect:', effect);
-    const processorRes = await fetch('http://172.31.5.137:3000/process', {
+    const processorRes = await fetch(`${processorUrl}/process`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ imageId: img._id, effect })
