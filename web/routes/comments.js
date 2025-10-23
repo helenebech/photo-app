@@ -20,7 +20,7 @@ function auth(req, res, next) {
   }
 }
 
-// POST - make comment for a picture
+//POST - make comment for a picture
 router.post('/', auth, async (req, res) => {
   const { imageId, text } = req.body;
   if (!imageId || !text) return res.status(400).json({ error: 'imageId and text required' });
@@ -36,7 +36,7 @@ router.post('/', auth, async (req, res) => {
   res.status(201).json(comment);
 });
 
-// GET - fetch comments on imageId
+//GET - fetch comments on imageId
 router.get('/', auth,  async (req, res) => {
   const { imageId } = req.query;
   const filter = imageId ? { imageId } : {};

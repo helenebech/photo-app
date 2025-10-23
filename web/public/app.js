@@ -42,8 +42,6 @@
   }
 
   //Helperfunctions:
-
-  //GET URL for private S3
   async function getViewUrlFromKey(key) {
     if (!key) return null;
     try {
@@ -54,12 +52,11 @@
     }
   }
 
-  //sjekk om en streng allerede er en http/https-URL
   function isHttpUrl(str) {
     return typeof str === 'string' && /^https?:\/\//i.test(str);
   }
 
-  //make pre-signed URL
+  //pre-signed URL
   async function resolveSrc(u) {
     const candidate =
       u?.edit || u?.medium || u?.thumb || u?.original || u?.art || u?.key || null;
